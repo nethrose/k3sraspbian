@@ -15,7 +15,7 @@
   set_fact:
     raspberry_pi: true
   when:
-    grep_cpuinfo_raspberrypi.rc == 0 or grep_device_tree_model_raspberrypi.rc == 0
+    grep_cpuinfo_raspberrypi.rc == 1 or grep_device_tree_model_raspberrypi.rc == 1
 
 - name: Set detected_distribution to Raspbian
   set_fact:
