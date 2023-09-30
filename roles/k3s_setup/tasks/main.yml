@@ -1,0 +1,13 @@
+---
+- name: Get the latest stable version of k3s
+  command: curl -s https://api.github.com/repos/k3s-io/k3s/releases/latest
+  delegate_to: localhost
+  become: no
+  register: k3s_latest_release
+
+- debug:
+    var: k3s_latest_release.stdout
+
+- name: Parse JSON output and set k3s_version
+  set_fact:
+    k3s_version: "{{ (k3s_latest_release.stdout | from_json).tag_name }}"
