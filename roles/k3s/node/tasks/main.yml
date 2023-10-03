@@ -1,5 +1,10 @@
 ---
-
+- name: Set leader01.local in /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ master_ip }} leader01.local"
+    state: present
+    
 - name: Copy K3s service file
   template:
     src: "k3s.service.j2"
