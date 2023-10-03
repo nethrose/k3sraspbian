@@ -35,6 +35,9 @@
     src: /var/lib/rancher/k3s/server/node-token
   register: node_token
 
+- debug:
+    var: node_token.content | b64decode
+
 - name: Store Master node-token
   set_fact:
     token: "{{ node_token.content | b64decode | regex_replace('\n', '') }}"

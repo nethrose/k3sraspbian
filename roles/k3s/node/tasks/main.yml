@@ -8,9 +8,30 @@
     group: root
     mode: 0755
 
+- name: Debug master_ip variable
+  debug:
+    var: master_ip
+
+- name: Debug token variable from master
+  debug:
+    var: hostvars[groups['k3sleaders'][0]]['token']
+
+
+- name: Test connectivity to master node API
+  command: curl -k https://{{ master_ip }}:6443/version
+  register: api_test
+  ignore_errors: true
+
+- debug:
+    var: api_test.stdout
+
 - name: Enable and check K3s service
   systemd:
     name: k3s-node
     daemon_reload: yes
     state: restarted
     enabled: yes
+  register: k3s_service_output
+
+- debug:
+    var: k3s_service_output
