@@ -1,5 +1,5 @@
 ---
 systemd_dir: /etc/systemd/system
-master_ip: "{{ hostvars[groups['k3sleaders'][0]]['ansible_host'] | default(groups['k3sleaders'][0]) }}"
+master_ip: "{{ hostvars[groups['k3sleaders'][0]]['ansible_default_ipv4']['address'] }}"
 extra_server_args: ""
 extra_agent_args: ""
