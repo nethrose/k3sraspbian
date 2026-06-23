@@ -1,9 +1,27 @@
 # k3sraspbian
 
-This is a derivative of: https://github.com/k3s-io/k3s-ansible
+Ansible playbooks to install k3s on **64-bit Raspberry Pi OS** (derivative of
+[k3s-io/k3s-ansible](https://github.com/k3s-io/k3s-ansible)).
 
-This has been completely modified to leverage 64-bit Raspberry Pi OS as opposed to 32 bit Raspbian.
+## Topology
 
-In order to use, you must modify: https://github.com/nethrose/k3sraspbian/blob/48ccda0f4304777010568ac392e14a849873173b/ansible.cfg#L2
+1 control-plane (`leader01`) + worker agents (`follower01`..). Workloads are managed separately by
+the [`k3s-gitops`](https://github.com/nethrose/k3s-gitops) Flux repo.
 
-...and point to the appropriate location for your cfg file. I need to make that a variable sometime soon, probs. Though I doubt anyone is using this outside of myself.
+## Usage
+
+```bash
+ansible-playbook -i inventory/my-cluster/hosts.yml site.yml   # install
+ansible-playbook -i inventory/my-cluster/hosts.yml reset.yml  # teardown
+```
+
+`ansible.cfg` points at `inventory/my-cluster/hosts.yml` by default. A reboot is expected after the
+first run (cgroup flags in `/boot/cmdline.txt`).
+
+## Rebuild notes (2026)
+
+- Inventory uses reserved DHCP IPs (`192.168.0.12` leader, `.11` follower). `follower02`/`.03` are
+  commented out until additional microSD cards are available.
+- `k3s_version` is pinned in `inventory/my-cluster/group_vars/all.yml`.
+- After `site.yml`, bootstrap Flux from `k3s-gitops` and apply cluster secrets (Twingate API key)
+  out-of-band on the cluster — see that repo's `twingate/secret.example.yaml`.
