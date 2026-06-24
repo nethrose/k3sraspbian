@@ -4,6 +4,7 @@
   gather_facts: yes
   become: yes
   roles:
+    - role: homelab_admin
     - role: k3s_setup
     - role: prereq
     - role: download

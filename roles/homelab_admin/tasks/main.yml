@@ -1,0 +1,32 @@
+---
+# Shared admin user for homelab operations and Twingate SSH gateway upstream auth.
+# Ansible still connects as the per-host user from inventory (leader01, follower01, …).
+- name: Ensure homelab admin group exists
+  ansible.builtin.group:
+    name: "{{ homelab_admin_group }}"
+    state: present
+
+- name: Create homelab admin user
+  ansible.builtin.user:
+    name: "{{ homelab_admin_user }}"
+    groups: "{{ homelab_admin_group }}"
+    append: true
+    shell: /bin/bash
+    create_home: true
+    state: present
+
+- name: Install SSH public key for homelab admin
+  ansible.builtin.authorized_key:
+    user: "{{ homelab_admin_user }}"
+    state: present
+    key: "{{ lookup('file', homelab_admin_ssh_pubkey_file) }}"
+    comment: "homelab admin (ansible)"
+
+- name: Passwordless sudo for homelab admin
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ homelab_admin_user }}"
+    content: "{{ homelab_admin_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s

@@ -11,7 +11,7 @@ full rebuild runbook, see the global `homelab-k3s-pi` skill. For project facts a
 
 ## Pre-flight (do this first)
 
-1. `ansible.cfg` hardcodes a macOS inventory path - do NOT rely on it. Always pass `-i`.
+1. `ansible.cfg` points at `inventory/my-cluster/hosts.yml` — still pass `-i` if you use another inventory.
 2. Use a real inventory: `inventory/my-cluster/hosts.yml`, or copy `inventory/sample/` and edit
    hosts/users. Confirm `ansible_user` and host reachability (mDNS `.local` or reserved IPs).
 3. Passwordless SSH (key-based) to every node must work: `ssh <user>@<host> true`.
@@ -25,9 +25,21 @@ cd /home/snuffy/Documents/GitHub/k3sraspbian
 ansible-playbook -i inventory/my-cluster/hosts.yml site.yml
 ```
 
-What happens: prereq sysctl, k3s binary download (arm64), Pi prep (cgroup flags in
-`/boot/cmdline.txt` + iptables-legacy, **reboot**), then `k3s/master` on the leader and `k3s/node`
-on the followers. Agents join via the server token.
+What happens: **`homelab_admin`** creates user `snuffy` (sudo, your SSH key), then prereq sysctl,
+k3s binary download (arm64), Pi prep (cgroup flags in `/boot/cmdline.txt` + iptables-legacy,
+**reboot**), then `k3s/master` on the leader and `k3s/node` on the followers.
+
+## Twingate SSH gateway (`sshd` User CA)
+
+After Flux deploys the gateway (`gateway.ssh.enabled`, username `snuffy` in `k3s-gitops`):
+
+```bash
+export KUBECONFIG=~/.kube/k3s-rbps.yaml
+ansible-playbook -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml
+```
+
+Fetches the gateway User CA from pod logs and configures `TrustedUserCAKeys` on every Pi. Still
+requires `TwingateResource` SSH endpoints in GitOps / Admin Console.
 
 ## Teardown
 

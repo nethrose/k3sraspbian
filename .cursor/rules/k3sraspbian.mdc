@@ -20,8 +20,10 @@ This repo provisions the *nodes*. Workloads on the cluster are managed separatel
 
 ## Layout
 
-- `site.yml` - install playbook: roles `k3s_setup`, `prereq`, `download`, `raspberrypi` on all
-  nodes, then `k3s/master` on the leader and `k3s/node` on followers.
+- `site.yml` - install: `homelab_admin` (user `snuffy`), then `k3s_setup`, `prereq`, `download`,
+  `raspberrypi`, then `k3s/master` / `k3s/node`.
+- `twingate-ssh-sshd.yml` - after Flux gateway is up: install `TrustedUserCAKeys` on every Pi
+  (fetches gateway User CA from cluster logs).
 - `reset.yml` - teardown (stop services, kill containerd shims, unmount, remove binaries/data).
 - `roles/k3s_setup` - resolves `k3s_version` by querying the GitHub releases API at run time.
 - `roles/raspberrypi` - Pi detection + cgroup flags in `/boot/cmdline.txt` + switch to iptables-legacy.
@@ -31,16 +33,18 @@ This repo provisions the *nodes*. Workloads on the cluster are managed separatel
 ## Usage
 
 ```bash
-ansible-playbook -i inventory/my-cluster/hosts.yml site.yml   # install
-ansible-playbook -i inventory/my-cluster/hosts.yml reset.yml  # teardown
+ansible-playbook -i inventory/my-cluster/hosts.yml site.yml              # install
+ansible-playbook -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml  # after Flux + gateway
+ansible-playbook -i inventory/my-cluster/hosts.yml reset.yml           # teardown
 ```
+
+`homelab_admin_user` (`snuffy`) must match `gateway.ssh.gateway.username` in `k3s-gitops`.
 
 A reboot is expected after the cgroup `cmdline.txt` change on first provision.
 
 ## Known gotchas (do not re-trip on these)
 
-- `ansible.cfg` hardcodes a macOS inventory path (`/Users/neth/Documents/GitHub/...`). On this
-  Linux box it is wrong - always pass `-i <inventory/hosts.yml>` or fix the path first.
+- `ansible.cfg` defaults to `inventory/my-cluster/hosts.yml` on this Linux box.
 - CI is broken: the workflow lives in a malformed dir `.github:workflows` (colon, not slash) and a
   stray root `lint.yml`. GitHub Actions will not run until this is `.github/workflows/`.
 - `inventory/sample/group_vars/all.yml` pins ancient `k3s_version: v1.17.5+k3s1`. `my-cluster` has

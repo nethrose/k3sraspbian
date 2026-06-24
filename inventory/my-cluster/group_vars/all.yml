@@ -4,3 +4,13 @@ systemd_dir: /etc/systemd/system
 master_ip: "{{ hostvars[groups['k3sleaders'][0]]['ansible_default_ipv4']['address'] }}"
 extra_server_args: ""
 extra_agent_args: ""
+
+# Shared homelab admin (Twingate SSH gateway upstream user; must match k3s-gitops gateway.ssh.gateway.username).
+homelab_admin_user: snuffy
+homelab_admin_group: sudo
+homelab_admin_ssh_pubkey_file: "{{ lookup('env', 'HOME') }}/.ssh/id_rsa.pub"
+
+# Twingate gateway in cluster (Helm release name from k3s-gitops twingate/helmrelease-operator.yaml).
+gateway_helm_release: twop
+twingate_namespace: twingate
+twingate_sshd_trusted_user_ca_keys_path: /etc/ssh/twingate-gateway-user-ca.pub
