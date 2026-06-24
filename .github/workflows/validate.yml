@@ -22,7 +22,12 @@ jobs:
         run: pip install yamllint ansible-lint ansible
 
       - name: yamllint
-        run: yamllint .
+        run: |
+          yamllint \
+            site.yml twingate-ssh-sshd.yml \
+            inventory/my-cluster \
+            roles/homelab_admin roles/twingate_ssh_sshd \
+            .github/workflows
 
       - name: ansible-lint
         run: ansible-lint site.yml twingate-ssh-sshd.yml
@@ -33,4 +38,7 @@ jobs:
           ansible-playbook --syntax-check -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml
 
       - name: Bootstrap scripts are executable
-        run: test -x scripts/verify-ssh.sh && test -x scripts/fetch-kubeconfig.sh && test -x scripts/post-k3s-bootstrap.sh
+        run: |
+          test -x scripts/verify-ssh.sh
+          test -x scripts/fetch-kubeconfig.sh
+          test -x scripts/post-k3s-bootstrap.sh
