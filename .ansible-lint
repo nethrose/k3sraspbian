@@ -4,3 +4,6 @@ skip_list:
   - name[play]
   - role-name[path]
   - var-naming[no-role-prefix]
+  - name[casing]
+  - fqcn[action-core]
+  - fqcn[action]

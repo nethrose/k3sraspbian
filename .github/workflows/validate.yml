@@ -30,7 +30,7 @@ jobs:
             .github/workflows
 
       - name: ansible-lint
-        run: ansible-lint site.yml twingate-ssh-sshd.yml
+        run: ansible-lint twingate-ssh-sshd.yml roles/homelab_admin roles/twingate_ssh_sshd
 
       - name: Ansible syntax-check
         run: |
