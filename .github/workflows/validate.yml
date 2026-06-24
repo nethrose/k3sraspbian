@@ -1,0 +1,36 @@
+---
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install lint tools
+        run: pip install yamllint ansible-lint ansible
+
+      - name: yamllint
+        run: yamllint .
+
+      - name: ansible-lint
+        run: ansible-lint site.yml twingate-ssh-sshd.yml
+
+      - name: Ansible syntax-check
+        run: |
+          ansible-playbook --syntax-check -i inventory/my-cluster/hosts.yml site.yml
+          ansible-playbook --syntax-check -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml
+
+      - name: Bootstrap scripts are executable
+        run: test -x scripts/verify-ssh.sh && test -x scripts/fetch-kubeconfig.sh && test -x scripts/post-k3s-bootstrap.sh
