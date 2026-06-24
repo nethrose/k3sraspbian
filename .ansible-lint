@@ -4,8 +4,3 @@ skip_list:
   - name[play]
   - role-name[path]
   - var-naming[no-role-prefix]
-
-write_list:
-  - yaml
-
-parseable: true
