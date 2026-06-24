@@ -16,7 +16,7 @@
     state: present
 
 - name: Install SSH public key for homelab admin
-  ansible.builtin.authorized_key:
+  ansible.posix.authorized_key:
     user: "{{ homelab_admin_user }}"
     state: present
     key: "{{ lookup('file', homelab_admin_ssh_pubkey_file) }}"
