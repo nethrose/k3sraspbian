@@ -24,17 +24,18 @@ jobs:
       - name: yamllint
         run: |
           yamllint \
-            site.yml twingate-ssh-sshd.yml \
+            site.yml homelab-nas.yml twingate-ssh-sshd.yml \
             inventory/my-cluster \
             roles/homelab_admin roles/twingate_ssh_sshd \
             .github/workflows
 
       - name: ansible-lint
-        run: ansible-lint twingate-ssh-sshd.yml roles/homelab_admin roles/twingate_ssh_sshd
+        run: ansible-lint homelab-nas.yml twingate-ssh-sshd.yml roles/homelab_admin roles/twingate_ssh_sshd
 
       - name: Ansible syntax-check
         run: |
           ansible-playbook --syntax-check -i inventory/my-cluster/hosts.yml site.yml
+          ansible-playbook --syntax-check -i inventory/my-cluster/hosts.yml homelab-nas.yml
           ansible-playbook --syntax-check -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml
 
       - name: Bootstrap scripts are executable
