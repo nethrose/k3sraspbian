@@ -4,14 +4,14 @@
   delegate_to: localhost
   become: false
   register: k3s_latest_release
-  when: k3s_use_latest_version | default(false) | bool
+  when: k3s_use_latest_version | default(true) | bool
 
 - name: Parse JSON output and set k3s_version
   ansible.builtin.set_fact:
     k3s_version: "{{ (k3s_latest_release.stdout | from_json).tag_name }}"
-  when: k3s_use_latest_version | default(false) | bool
+  when: k3s_use_latest_version | default(true) | bool
 
 - name: Use pinned k3s_version from inventory
   ansible.builtin.debug:
     msg: "Using pinned k3s_version={{ k3s_version }}"
-  when: not (k3s_use_latest_version | default(false) | bool)
+  when: not (k3s_use_latest_version | default(true) | bool)
