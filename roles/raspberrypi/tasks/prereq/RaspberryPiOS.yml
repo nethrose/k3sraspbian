@@ -1,25 +1,69 @@
 ---
-- name: Activating cgroup support
-  lineinfile:
-    path: /boot/cmdline.txt
-    regexp: '^((?!.*\bcgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory\b).*)$'
-    line: '\1 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory'
+# Modern Pi OS (Bookworm/Trixie) uses cgroup v2 and /boot/firmware/cmdline.txt.
+- name: Determine Raspberry Pi boot cmdline path
+  ansible.builtin.stat:
+    path: /boot/firmware/cmdline.txt
+  register: raspberrypi_firmware_cmdline
+
+- name: Set boot cmdline path
+  ansible.builtin.set_fact:
+    raspberrypi_cmdline_path: >-
+      {{ '/boot/firmware/cmdline.txt'
+         if raspberrypi_firmware_cmdline.stat.exists
+         else '/boot/cmdline.txt' }}
+
+- name: Activating cgroup v2 memory controller support
+  ansible.builtin.lineinfile:
+    path: "{{ raspberrypi_cmdline_path }}"
+    regexp: '^((?!.*\bcgroup_enable=cpuset\b)(?!.*\bcgroup_enable=memory\b).*)$'
+    line: '\1 cgroup_enable=cpuset cgroup_enable=memory'
     backrefs: true
   notify: reboot
 
+# Pi OS may not ship iptables. k3s uses the iptables userspace binary (nft or legacy backend).
+- name: Ensure iptables is installed
+  ansible.builtin.apt:
+    name: iptables
+    state: present
+
+# Kernels 6.18+ on Pi OS may ship nftables only (no ip_tables module) — legacy cannot work.
+- name: Check for iptables-legacy kernel module
+  ansible.builtin.stat:
+    path: "/lib/modules/{{ ansible_facts.kernel }}/kernel/net/netfilter/ip_tables.ko.xz"
+  register: raspberrypi_ip_tables_module
+
+- name: Select iptables backend
+  ansible.builtin.set_fact:
+    raspberrypi_use_iptables_legacy: >-
+      {{ (k3s_use_iptables_legacy | default(false) | bool)
+         and raspberrypi_ip_tables_module.stat.exists }}
+
 - name: Flush iptables before changing to iptables-legacy
-  iptables:
+  ansible.builtin.iptables:
     flush: true
-  changed_when: false   # iptables flush always returns changed
+  changed_when: false
+  when: raspberrypi_use_iptables_legacy
 
 - name: Changing to iptables-legacy
   alternatives:
     path: /usr/sbin/iptables-legacy
     name: iptables
-  register: ip4_legacy
+  when: raspberrypi_use_iptables_legacy
 
 - name: Changing to ip6tables-legacy
   alternatives:
     path: /usr/sbin/ip6tables-legacy
     name: ip6tables
-  register: ip6_legacy
+  when: raspberrypi_use_iptables_legacy
+
+- name: Changing to iptables-nft
+  alternatives:
+    path: /usr/sbin/iptables-nft
+    name: iptables
+  when: not raspberrypi_use_iptables_legacy
+
+- name: Changing to ip6tables-nft
+  alternatives:
+    path: /usr/sbin/ip6tables-nft
+    name: ip6tables
+  when: not raspberrypi_use_iptables_legacy
