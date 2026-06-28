@@ -19,16 +19,18 @@ ansible-playbook -i inventory/my-cluster/hosts.yml reset.yml           # teardow
 
 ### Workstation `kubectl` (fish / bash)
 
-Without `KUBECONFIG`, `kubectl` cannot reach the cluster. After `./scripts/fetch-kubeconfig.sh`:
+Add to your shell config once (see `scripts/workstation-env.fish`):
 
 ```fish
-# fish — one line per session, or permanent in ~/.config/fish/config.fish:
 source ~/Documents/GitHub/k3sraspbian/scripts/workstation-env.fish
 ```
 
-```bash
-# bash/zsh — or add to ~/.bashrc / ~/.zshrc:
-source ~/Documents/GitHub/k3sraspbian/scripts/workstation-env.sh
+Defaults to **LAN admin** (`~/.kube/k3s-rbps.yaml`). Keep **`twingate kube config autosync`** on for
+remote contexts. Switch modes:
+
+```fish
+k3s-lan       # admin — secrets, Flux, debugging
+k3s-twingate  # remote via k3s.int
 ```
 
 ---
