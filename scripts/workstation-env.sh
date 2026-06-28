@@ -3,24 +3,29 @@
 # One-time setup — add to ~/.bashrc or ~/.zshrc:
 #   source ~/Documents/GitHub/k3sraspbian/scripts/workstation-env.sh
 #
-# Default: LAN admin kubeconfig (~/.kube/k3s-rbps.yaml, context "default").
-# Twingate kube autosync still updates ~/.kube/config; use k3s-twingate to switch.
+# Aligns with Twingate Privileged Access for Kubernetes:
+#   https://www.twingate.com/docs/kubernetes-access
+#   https://www.twingate.com/docs/kubernetes-kubeconfig-sync
 
-export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/k3s-rbps.yaml}"
+mkdir -p "$HOME/.kube"
+export KUBECONFIG="$HOME/.kube/config"
 
-if [[ ! -f "$KUBECONFIG" ]]; then
-  echo "workstation-env.sh: missing $KUBECONFIG — run scripts/fetch-kubeconfig.sh" >&2
+_k3s_ctx="twingate-k3s-rbps-api"
+if kubectl config get-contexts -o name 2>/dev/null | grep -qx "$_k3s_ctx"; then
+  kubectl config use-context "$_k3s_ctx" >/dev/null
+  echo "kubectl → Twingate ($_k3s_ctx via k3s.int; enable: twingate kube config autosync)"
+else
+  echo "workstation-env.sh: no $_k3s_ctx — run: twingate kube config sync" >&2
 fi
 
 k3s-lan() {
   export KUBECONFIG="$HOME/.kube/k3s-rbps.yaml"
+  kubectl config use-context default >/dev/null 2>&1
   echo "kubectl → LAN admin ($KUBECONFIG, context default)"
 }
 
 k3s-twingate() {
-  unset KUBECONFIG
+  export KUBECONFIG="$HOME/.kube/config"
   kubectl config use-context twingate-k3s-rbps-api
-  echo "kubectl → Twingate (context twingate-k3s-rbps-api, identity RBAC applies)"
+  echo "kubectl → Twingate (context twingate-k3s-rbps-api)"
 }
-
-k3s-lan
