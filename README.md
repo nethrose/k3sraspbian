@@ -17,6 +17,22 @@ ansible-playbook -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml # Pis +
 ansible-playbook -i inventory/my-cluster/hosts.yml reset.yml           # teardown
 ```
 
+### Workstation `kubectl` (fish / bash)
+
+Without `KUBECONFIG`, `kubectl` cannot reach the cluster. After `./scripts/fetch-kubeconfig.sh`:
+
+```fish
+# fish — one line per session, or permanent in ~/.config/fish/config.fish:
+source ~/Documents/GitHub/k3sraspbian/scripts/workstation-env.fish
+```
+
+```bash
+# bash/zsh — or add to ~/.bashrc / ~/.zshrc:
+source ~/Documents/GitHub/k3sraspbian/scripts/workstation-env.sh
+```
+
+---
+
 `ansible.cfg` points at `inventory/my-cluster/hosts.yml` by default. A reboot is expected after the
 first run (cgroup flags in `/boot/cmdline.txt`).
 
