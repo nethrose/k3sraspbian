@@ -1,65 +1,97 @@
 # k3sraspbian
 
-Ansible playbooks to install k3s on **64-bit Raspberry Pi OS** (derivative of
-[k3s-io/k3s-ansible](https://github.com/k3s-io/k3s-ansible)).
+Ansible playbooks to provision **64-bit Raspberry Pi OS** nodes and install [k3s](https://k3s.io/).
 
-## Topology
+Derived from [k3s-io/k3s-ansible](https://github.com/k3s-io/k3s-ansible). Workloads are deployed
+separately via GitOps ([k3s-gitops](https://github.com/nethrose/k3s-gitops)).
 
-1 control-plane (`leader01`) + 3 worker agents (`follower01`..`follower03`). Workloads are managed
-separately by the [`k3s-gitops`](https://github.com/nethrose/k3s-gitops) Flux repo.
+## Topology (example)
 
-## Usage
+| Role | Hostname | Notes |
+|------|----------|-------|
+| control-plane | `leader01` | k3s server |
+| worker ×3 | `follower01` … `follower03` | k3s agents |
+
+This repo ships an **example inventory** (`inventory/my-cluster/`) with private LAN IPs — fork and
+edit for your network.
+
+## Prerequisites
+
+- Ansible 2.14+
+- SSH access to each Pi (user = hostname per SD card image, or your choice)
+- Raspberry Pi OS **64-bit** Lite (or Desktop with GUI disabled)
+- Your SSH public key at `~/.ssh/id_rsa.pub` (or set `homelab_admin_ssh_pubkey_file`)
+
+## Quick start
 
 ```bash
-ansible-playbook -i inventory/my-cluster/hosts.yml site.yml              # k3s + homelab admin user
-ansible-playbook -i inventory/my-cluster/hosts.yml homelab-nas.yml       # NAS snuffy + SSH CA (OMV admin)
-ansible-playbook -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml # Pis + NAS gateway User CA
-ansible-playbook -i inventory/my-cluster/hosts.yml reset.yml           # teardown
+# 1. Edit inventory — IPs, hostnames, k3s version
+cp -r inventory/my-cluster inventory/your-cluster   # optional: keep example as reference
+# edit inventory/my-cluster/hosts.yml and group_vars/all.yml
+
+# 2. Provision k3s + homelab admin user (snuffy by default)
+ansible-playbook -i inventory/my-cluster/hosts.yml site.yml
+
+# 3. Fetch kubeconfig (from a machine that can SSH to the leader)
+./scripts/fetch-kubeconfig.sh
+export KUBECONFIG=~/.kube/k3s-rbps.yaml
+kubectl get nodes
 ```
 
-### kubectl
+A **reboot** is expected after the first run (cgroup flags written to `/boot/firmware/cmdline.txt`).
 
-- **Remote:** `twingate kube config autosync` then `kubectl --context=twingate-k3s-rbps-api …`
-- **LAN admin:** `./scripts/fetch-kubeconfig.sh` then `export KUBECONFIG=~/.kube/k3s-rbps.yaml`
+## Playbooks
 
-The operator/gateway in-cluster handle `k3s.int`; the laptop just picks which kubeconfig to use.
-
----
-
-`ansible.cfg` points at `inventory/my-cluster/hosts.yml` by default. A reboot is expected after the
-first run (cgroup flags in `/boot/cmdline.txt`).
-
-## Homelab admin user (`snuffy`)
-
-`site.yml` creates user **`snuffy`** on every k3s node (passwordless `sudo`, your `~/.ssh/id_rsa.pub`).
-`homelab-nas.yml` does the same on the **CM3588 NAS** (`192.168.0.72`), bootstrapping over OMV
-**`admin`**. Both match `gateway.ssh.gateway.username` in `k3s-gitops` for Twingate SSH (`leader01.ssh`,
-`jellyfin.ssh`, …). Ansible still connects as the per-host bootstrap user from inventory (`leader01`, …,
-`admin` on NAS).
-
-Override `homelab_admin_ssh_pubkey_file` in `inventory/my-cluster/group_vars/all.yml` if needed.
-
-## CM3588 NAS (`homelab-nas.yml`)
-
-OpenMediaVault ships with **`admin`**, not `snuffy`. Run once (password sudo on OMV):
+| Playbook | Purpose |
+|----------|---------|
+| `site.yml` | Homelab admin user + k3s server/agents + Pi prereqs |
+| `homelab-nas.yml` | `snuffy` user + Twingate SSH CA on CM3588 NAS (OMV `admin` bootstrap) |
+| `twingate-ssh-sshd.yml` | Trust Twingate gateway User CA on Pis and NAS |
+| `reset.yml` | Teardown k3s |
 
 ```bash
-export KUBECONFIG=~/.kube/k3s-rbps.yaml
 ansible-playbook -i inventory/my-cluster/hosts.yml homelab-nas.yml --ask-become-pass
-```
-
-Override `ansible_user` on host `cm3588` in `inventory/my-cluster/hosts.yml` if your OMV admin name
-differs. Afterward: `ssh snuffy@192.168.0.72` on LAN, or `ssh snuffy@jellyfin.ssh` via Twingate.
-
-## Twingate SSH gateway (`sshd` trust)
-
-After Flux deploys the gateway with `gateway.ssh.enabled`, run:
-
-```bash
-export KUBECONFIG=~/.kube/k3s-rbps.yaml
 ansible-playbook -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml
 ```
 
-This fetches the gateway **User CA** public key from the gateway pod logs and installs
-`TrustedUserCAKeys` on each Pi and the NAS. You still need `TwingateResource` CRs for SSH endpoints in
-`k3s-gitops` (`twingate/manifests/resources-ssh.yaml`).
+Requires Flux + Twingate gateway running (see k3s-gitops `docs/bootstrap.md`).
+
+## kubectl
+
+- **Remote:** `twingate kube config autosync` → `kubectl --context=twingate-k3s-rbps-api …`
+- **LAN admin:** `./scripts/fetch-kubeconfig.sh` → `export KUBECONFIG=~/.kube/k3s-rbps.yaml`
+
+## Configuration
+
+`inventory/my-cluster/group_vars/all.yml`:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `k3s_use_latest_version` | `true` | Fetch latest k3s from GitHub |
+| `k3s_version` | `v1.31.0+k3s1` | Fallback when latest is disabled |
+| `homelab_admin_user` | `snuffy` | Shared admin + Twingate SSH upstream user |
+| `homelab_admin_ssh_pubkey_file` | `~/.ssh/id_rsa.pub` | SSH key installed for admin user |
+
+`homelab_admin_user` must match `gateway.ssh.gateway.username` in k3s-gitops.
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/fetch-kubeconfig.sh` | Pull k3s.yaml from leader, fix API URL |
+| `scripts/verify-ssh.sh` | Ping all inventory hosts over SSH |
+| `scripts/post-k3s-bootstrap.sh` | Post-Flux helpers (secrets, hints) |
+
+## Modern Pi OS notes
+
+- **Cgroup flags** → `/boot/firmware/cmdline.txt` (not the `/boot/cmdline.txt` stub)
+- **iptables** → auto-detects nft vs legacy (`k3s_use_iptables_legacy: false` on kernel 6.18+)
+
+## Related
+
+- [k3s-gitops](https://github.com/nethrose/k3s-gitops) — Flux manifests, Twingate, monitoring
+- [k3s-gitops bootstrap runbook](https://github.com/nethrose/k3s-gitops/blob/main/docs/bootstrap.md)
+
+## License
+
+Personal homelab configuration — use as reference; no warranty.
