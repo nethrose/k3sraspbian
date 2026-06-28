@@ -17,23 +17,12 @@ ansible-playbook -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml # Pis +
 ansible-playbook -i inventory/my-cluster/hosts.yml reset.yml           # teardown
 ```
 
-### Workstation `kubectl` (fish / bash)
+### kubectl
 
-Add to your shell config once (see `scripts/workstation-env.fish`):
+- **Remote:** `twingate kube config autosync` then `kubectl --context=twingate-k3s-rbps-api …`
+- **LAN admin:** `./scripts/fetch-kubeconfig.sh` then `export KUBECONFIG=~/.kube/k3s-rbps.yaml`
 
-```fish
-source ~/Documents/GitHub/k3sraspbian/scripts/workstation-env.fish
-```
-
-Defaults to **Twingate kubectl** (`~/.kube/config`, context `twingate-k3s-rbps-api`). Keep
-**`twingate kube config autosync`** on. LAN admin break-glass:
-
-```fish
-k3s-lan       # cluster-admin via ~/.kube/k3s-rbps.yaml
-k3s-twingate  # back to Twingate identity context
-```
-
-See [Twingate kubeconfig sync](https://www.twingate.com/docs/kubernetes-kubeconfig-sync).
+The operator/gateway in-cluster handle `k3s.int`; the laptop just picks which kubeconfig to use.
 
 ---
 
