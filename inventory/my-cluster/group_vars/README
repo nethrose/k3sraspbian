@@ -1,0 +1,7 @@
+# Example / template inventory — copy before first use:
+#
+#   cp -r inventory/my-cluster inventory/your-cluster
+#   ansible-playbook -i inventory/your-cluster/hosts.yml site.yml
+#
+# Set homelab_admin_user here (or pass -e homelab_admin_user=… at playbook time).
+# Must match gateway.ssh.gateway.username in your GitOps Twingate HelmRelease.

@@ -8,7 +8,7 @@
 #   export KUBECONFIG=~/.kube/k3s-rbps.yaml
 #   ansible-playbook -i inventory/my-cluster/hosts.yml homelab-nas.yml --ask-become-pass
 #
-# After this: ssh snuffy@jellyfin.ssh via Twingate (resource in k3s-gitops resources-ssh.yaml).
+# After this: ssh <homelab_admin_user>@jellyfin.ssh via Twingate (SSH resource in your GitOps repo).
 
 - hosts: homelab_nas
   become: true

@@ -1,7 +1,7 @@
 ---
 # Configure Pi sshd to trust the Twingate gateway SSH User CA.
 # Prerequisites:
-#   - site.yml completed (homelab admin user snuffy exists)
+#   - site.yml completed (homelab admin user exists)
 #   - Flux bootstrapped; twingate-operator HelmRelease reconciled with gateway.ssh.enabled
 #   - KUBECONFIG pointing at the cluster (e.g. ~/.kube/k3s-rbps.yaml)
 #   - kubectl in PATH on the machine running Ansible

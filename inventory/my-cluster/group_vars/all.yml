@@ -9,8 +9,8 @@ master_ip: "{{ hostvars[groups['k3sleaders'][0]]['ansible_default_ipv4']['addres
 extra_server_args: ""
 extra_agent_args: ""
 
-# Shared homelab admin (Twingate SSH gateway upstream user; must match k3s-gitops gateway.ssh.gateway.username).
-homelab_admin_user: snuffy
+# Shared homelab admin (Twingate SSH gateway upstream user; must match gateway.ssh.gateway.username in your GitOps repo).
+homelab_admin_user: homelab
 homelab_admin_group: sudo
 homelab_admin_ssh_pubkey_file: "{{ lookup('env', 'HOME') }}/.ssh/id_rsa.pub"
 
