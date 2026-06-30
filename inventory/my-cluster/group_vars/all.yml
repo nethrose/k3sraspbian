@@ -14,9 +14,6 @@ homelab_admin_user: snuffy
 homelab_admin_group: sudo
 homelab_admin_ssh_pubkey_file: "{{ lookup('env', 'HOME') }}/.ssh/id_rsa.pub"
 
-# Twingate gateway in cluster (Helm release name from k3s-gitops twingate/helmrelease-operator.yaml).
-gateway_helm_release: twop
-twingate_namespace: twingate
 twingate_sshd_trusted_user_ca_keys_path: /etc/ssh/twingate-gateway-user-ca.pub
 # Public key of the gateway's manual SSH User CA (ssh_ca.pub from k3s-gitops
 # scripts/gen-gateway-cas.sh; the same key registered with Twingate as the SSH CA).

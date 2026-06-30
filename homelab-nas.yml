@@ -2,16 +2,25 @@
 # CM3588 NAS (OpenMediaVault): homelab admin user + Twingate gateway SSH User CA trust.
 # Prerequisites:
 #   - SSH as OMV admin (inventory homelab_nas ansible_user, default admin)
-#   - Flux gateway with gateway.ssh.enabled; KUBECONFIG on the Ansible control machine
+#   - Flux gateway with gateway.ssh.enabled
 #
 # Usage:
-#   export KUBECONFIG=~/.kube/k3s-rbps.yaml
-#   ansible-playbook -i inventory/my-cluster/hosts.yml homelab-nas.yml --ask-become-pass
+#   ansible-playbook -i inventory/my-cluster/hosts.yml homelab-nas.yml \
+#     -e ansible_user=admin --ask-become-pass
 #
-# After this: ssh <homelab_admin_user>@jellyfin.ssh via Twingate (SSH resource in your GitOps repo).
+# After this: ssh snuffy@jellyfin.ssh via Twingate.
+#
+# OMV often ignores sshd_config.d drop-ins. If gateway SSH hangs after the banner, run on the NAS:
+#   sudo sshd -T | grep -i trusteduserca
+# If it shows "none", append TrustedUserCAKeys to /etc/ssh/sshd_config (see k3s-gitops
+# docs/twingate-ssh-gateway.md).
 
 - hosts: homelab_nas
+  gather_facts: false
   become: true
+  vars:
+    ansible_pipelining: false
+    ansible_ssh_timeout: 30
   roles:
     - role: homelab_admin
     - role: twingate_ssh_sshd
