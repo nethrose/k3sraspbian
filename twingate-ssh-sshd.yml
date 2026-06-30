@@ -8,15 +8,29 @@
 # This installs that public key as TrustedUserCAKeys; it no longer reads anything
 # from the cluster, so no KUBECONFIG/kubectl is required.
 #
-# Usage:
+# Usage (Twingate client off for LAN, or use -e ansible_user=snuffy):
 #   ansible-playbook -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml
+#
+# NAS (jellyfin): run homelab-nas.yml first if snuffy does not exist yet; that playbook
+# connects as inventory admin and creates homelab_admin_user (snuffy). Gateway SSH always
+# uses snuffy@jellyfin.ssh — not admin@.
 
 - hosts: k3s_cluster
+  gather_facts: false
   become: true
+  vars:
+    ansible_user: "{{ homelab_admin_user }}"
+    ansible_pipelining: false
+    ansible_ssh_timeout: 30
   roles:
     - role: twingate_ssh_sshd
 
 - hosts: homelab_nas
+  gather_facts: false
   become: true
+  vars:
+    ansible_user: "{{ homelab_admin_user }}"
+    ansible_pipelining: false
+    ansible_ssh_timeout: 30
   roles:
     - role: twingate_ssh_sshd
