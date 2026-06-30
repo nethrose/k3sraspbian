@@ -15,12 +15,15 @@
     create_home: true
     state: present
 
-- name: Install SSH public key for homelab admin
+# Static pubkey is bootstrap-only. With gateway SSH CA trust, snuffy@*.ssh uses cert auth.
+# Set homelab_admin_install_ssh_pubkey: true only for first bootstrap before CA is on the node.
+- name: Manage SSH public key for homelab admin
   ansible.posix.authorized_key:
     user: "{{ homelab_admin_user }}"
-    state: present
+    state: "{{ 'present' if homelab_admin_install_ssh_pubkey | bool else 'absent' }}"
     key: "{{ lookup('file', homelab_admin_ssh_pubkey_file) }}"
     comment: "homelab admin (ansible)"
+  when: homelab_admin_install_ssh_pubkey | bool or homelab_admin_remove_static_ssh_pubkey | default(true) | bool
 
 - name: Passwordless sudo for homelab admin
   ansible.builtin.copy:
