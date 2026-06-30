@@ -1,50 +1,31 @@
 ---
-# Run after Flux has deployed the Twingate gateway with SSH enabled (auto-generated User CA).
-# Fetches the gateway User CA public key from cluster logs and configures sshd on every Pi.
-- name: Fetch Twingate gateway User CA public key from cluster
-  delegate_to: localhost
-  run_once: true
-  become: false
-  block:
-    - name: Resolve gateway pod name
-      ansible.builtin.command:
-        cmd: >
-          kubectl get pods -n {{ twingate_namespace }}
-          -l app.kubernetes.io/name=gateway,app.kubernetes.io/instance={{ gateway_helm_release }}
-          -o jsonpath={.items[0].metadata.name}
-      register: twingate_gateway_pod
-      changed_when: false
-      failed_when: twingate_gateway_pod.stdout | length == 0
-
-    - name: Extract User CA public key from gateway logs
-      ansible.builtin.shell: |
-        set -euo pipefail
-        kubectl logs -n "{{ twingate_namespace }}" "{{ twingate_gateway_pod.stdout }}" --tail=2000 2>/dev/null \
-          | grep -oE 'ssh-(ed25519|rsa) [A-Za-z0-9+/][A-Za-z0-9+/=]*' \
-          | tail -1
-      register: twingate_gateway_user_ca
-      changed_when: false
-      failed_when: twingate_gateway_user_ca.stdout | length == 0
-
-    - name: Validate extracted SSH public key
-      ansible.builtin.command:
-        cmd: ssh-keygen -l -f /dev/stdin
-      args:
-        stdin: "{{ twingate_gateway_user_ca.stdout }}\n"
-      changed_when: false
-
-    - name: Store gateway User CA for cluster nodes
-      ansible.builtin.set_fact:
-        twingate_gateway_user_ca_pubkey: "{{ twingate_gateway_user_ca.stdout }}"
-      delegate_facts: true
+# Trust the Twingate gateway SSH User CA on every node.
+#
+# The CA is now a PERSISTENT, manual CA (gateway HelmRelease ssh.ca.manual.existingSecret),
+# so its public key is a known, stable value supplied out-of-band via
+# `twingate_gateway_user_ca_pubkey` (group_vars or -e) — the same key registered with
+# Twingate as the SSH CA. This replaces the old approach of scraping the auto-generated CA
+# out of gateway pod logs (fragile: it rotated on every pod restart and needed cluster access).
+# Generate the key with k3s-gitops `scripts/gen-gateway-cas.sh`.
+- name: Assert gateway User CA public key is configured
+  ansible.builtin.assert:
+    that:
+      - twingate_gateway_user_ca_pubkey is defined
+      - twingate_gateway_user_ca_pubkey | trim | length > 0
+      - twingate_gateway_user_ca_pubkey is match('^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+) ')
+    fail_msg: >-
+      twingate_gateway_user_ca_pubkey is not set. Paste the gateway SSH CA public key
+      (ssh_ca.pub from k3s-gitops scripts/gen-gateway-cas.sh) into group_vars/all.yml
+      or pass it with -e twingate_gateway_user_ca_pubkey="ssh-ed25519 AAAA...".
 
 - name: Install gateway User CA on nodes
   ansible.builtin.copy:
     dest: "{{ twingate_sshd_trusted_user_ca_keys_path }}"
-    content: "{{ hostvars['localhost']['twingate_gateway_user_ca_pubkey'] }}\n"
+    content: "{{ twingate_gateway_user_ca_pubkey | trim }}\n"
     owner: root
     group: root
     mode: "0644"
+  notify: reload sshd
 
 - name: Configure sshd to trust Twingate gateway User CA
   ansible.builtin.copy:

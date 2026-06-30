@@ -18,3 +18,7 @@ homelab_admin_ssh_pubkey_file: "{{ lookup('env', 'HOME') }}/.ssh/id_rsa.pub"
 gateway_helm_release: twop
 twingate_namespace: twingate
 twingate_sshd_trusted_user_ca_keys_path: /etc/ssh/twingate-gateway-user-ca.pub
+# Public key of the gateway's manual SSH User CA (ssh_ca.pub from k3s-gitops
+# scripts/gen-gateway-cas.sh; the same key registered with Twingate as the SSH CA).
+# Public key only — never put the private key here. Override per-run with -e if preferred.
+twingate_gateway_user_ca_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDG+162gLMwxw3zrVNwHMpk42+p01EVHYkkPdpBlYuOr twingate-gateway-ca"
