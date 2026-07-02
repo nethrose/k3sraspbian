@@ -26,7 +26,6 @@ while [[ $# -gt 0 ]]; do
     --secrets-only) SECRETS_ONLY=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
-  ;;
   esac
 done
 
@@ -42,9 +41,24 @@ create_twingate_secret() {
   echo "Twingate secret applied. Reconcile: flux reconcile helmrelease twingate-operator -n twingate"
 }
 
+create_grafana_secret() {
+  if [[ -z "${GRAFANA_ADMIN_PASSWORD:-}" ]]; then
+    echo "Set GRAFANA_ADMIN_PASSWORD to create the Grafana admin secret." >&2
+    return 1
+  fi
+  kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+  kubectl -n monitoring create secret generic grafana-admin \
+    --from-literal=admin-user="${GRAFANA_ADMIN_USER:-admin}" \
+    --from-literal=admin-password="$GRAFANA_ADMIN_PASSWORD" \
+    --dry-run=client -o yaml | kubectl apply -f -
+  echo "Grafana admin secret applied (used by kube-prometheus-stack via grafana.admin.existingSecret)."
+}
+
 if $SECRETS_ONLY; then
-  create_twingate_secret
-  exit 0
+  rc=0
+  create_twingate_secret || rc=1
+  create_grafana_secret || rc=1
+  exit $rc
 fi
 
 echo "==> Verifying SSH to all inventory hosts"
@@ -67,6 +81,11 @@ if [[ -n "${TWINGATE_API_KEY:-}" ]]; then
   create_twingate_secret || true
 fi
 
+if [[ -n "${GRAFANA_ADMIN_PASSWORD:-}" ]]; then
+  export KUBECONFIG="$KUBECONFIG_OUT"
+  create_grafana_secret || true
+fi
+
 cat <<EOF
 
 Next steps (if this is a new cluster):
@@ -77,6 +96,11 @@ Next steps (if this is a new cluster):
 After Flux reconciles:
   kubectl -n monitoring create secret generic jellyfin-exporter-credentials \\
     --from-literal=JELLYFIN_TOKEN='<jellyfin-api-key>'
+
+Grafana admin secret (required before kube-prometheus-stack goes Ready):
+  set GRAFANA_ADMIN_PASSWORD and re-run with --secrets-only, or create manually:
+  kubectl -n monitoring create secret generic grafana-admin \\
+    --from-literal=admin-user=admin --from-literal=admin-password='<password>'
 
 See k3s-gitops/docs/bootstrap.md for the full procedure.
 EOF
