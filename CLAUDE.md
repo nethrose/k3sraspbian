@@ -1,16 +1,14 @@
----
-description: Project memory for the k3sraspbian Ansible repo (k3s on 64-bit Raspberry Pi OS). Facts, usage, and known gotchas.
-alwaysApply: true
----
-
-# k3sraspbian (project memory)
+# k3sraspbian
 
 Ansible project that provisions a lightweight Kubernetes (k3s) cluster on Raspberry Pis.
 Fork/derivative of [k3s-io/k3s-ansible](https://github.com/k3s-io/k3s-ansible), adapted for
-**64-bit Raspberry Pi OS** (not 32-bit Raspbian). Remote: `git@github.com:nethrose/k3sraspbian`.
+**64-bit Raspberry Pi OS** (not 32-bit Raspbian). Remote: `git@github.com:nethrose/k3sraspbian`
+(**public**).
 
 This repo provisions the *nodes*. Workloads on the cluster are managed separately by the
-`k3s-gitops` repo (Flux). See the global `homelab-k3s-pi` skill for how the two relate.
+`k3s-gitops` repo (Flux). For homelab-wide context and the full rebuild runbook, see the global
+`homelab-k3s-pi` skill; the step-by-step provisioning runbook is the project skill
+`.claude/skills/provision-k3s-pis`.
 
 ## Topology
 
@@ -20,17 +18,19 @@ This repo provisions the *nodes*. Workloads on the cluster are managed separatel
 
 ## Layout
 
-- `site.yml` - install: `homelab_admin` (user `snuffy`), then `k3s_setup`, `prereq`, `download`,
-  `raspberrypi`, then `k3s/master` / `k3s/node`.
-- `twingate-ssh-sshd.yml` - install `TrustedUserCAKeys` on k3s Pis from `twingate_gateway_user_ca_pubkey`
-  (k3s-gitops `scripts/gen-gateway-cas.sh`). NAS: `homelab-nas.yml` only.
-- `reset.yml` - teardown (stop services, kill containerd shims, unmount, remove binaries/data).
-- `roles/k3s_setup` - resolves `k3s_version` by querying the GitHub releases API at run time.
-- `roles/raspberrypi` - Pi detection + cgroup flags (`/boot/firmware/cmdline.txt` on modern Pi OS)
+- `site.yml` — install: on `k3s_cluster` runs `homelab_admin` (user `snuffy`), then `k3s_setup`,
+  `prereq`, `download`, `raspberrypi`; then `k3s/master` on `k3sleaders` and `k3s/node` on
+  `k3sfollowers`.
+- `twingate-ssh-sshd.yml` — install `TrustedUserCAKeys` on k3s Pis from
+  `twingate_gateway_user_ca_pubkey` (k3s-gitops `scripts/gen-gateway-cas.sh`). NAS: `homelab-nas.yml`
+  only.
+- `reset.yml` — teardown (stop services, kill containerd shims, unmount, remove binaries/data).
+- `roles/k3s_setup` — resolves `k3s_version` by querying the GitHub releases API at run time.
+- `roles/raspberrypi` — Pi detection + cgroup flags (`/boot/firmware/cmdline.txt` on modern Pi OS)
   + iptables backend selection (nft by default; legacy only if `k3s_use_iptables_legacy` AND the
   `ip_tables` module exists).
-- `inventory/sample` - template inventory (SSH user `pi`).
-- `inventory/my-cluster` - author's real inventory (fixed IPs, per-host SSH user = hostname).
+- `inventory/sample` — template inventory (SSH user `pi`).
+- `inventory/my-cluster` — author's real inventory (fixed IPs, per-host SSH user = hostname).
 
 ## Usage
 
@@ -52,14 +52,14 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
 - `inventory/sample/group_vars/all.yml` pins ancient `k3s_version: v1.17.5+k3s1` (public-repo
   cosmetics only; `my-cluster` uses `k3s_use_latest_version: true`).
 - `roles/k3s/master` and `roles/k3s/node` use `systemd: state: restarted` — **every `site.yml` run
-  restarts the whole cluster**, changed or not. Known issue, fix pending (k3s-gitops TODO.md
+  restarts the whole cluster**, changed or not. Known issue, fix pending (k3s-gitops `TODO.md`
   review notes, 2026-07-02).
 - The join token is rendered into `k3s-node.service` (mode 0755) and `debug`-printed by both k3s
   roles. Treat playbook output as secret; never paste it into docs, rules, or commits.
 - `reset.yml` targets `hosts: all`, which includes the NAS (`homelab_nas`) — scope-check before
   running it.
 - `roles/k3s/node/tasks/main.yml` hardcodes `leader01.local` in `/etc/hosts` (unused by the join,
-  which uses `master_ip`) - keep leader naming consistent anyway.
+  which uses `master_ip`) — keep leader naming consistent anyway.
 - `prereq` role contains upstream RHEL/SELinux tasks that are dead code on Pi OS (harmless).
 - CI (`.github/workflows/validate.yml`) runs yamllint + syntax-check on everything but
   ansible-lint only on `homelab_admin`/`twingate_ssh_sshd` (legacy upstream roles skipped).
@@ -67,10 +67,11 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
 ## Hardware / network
 
 - Raspberry Pi (64-bit OS), microSD boot. Nodes reachable over SSH.
-- Networking is currently fixed-DHCP (not true static); goal is DHCP reservations on the ISP router.
-  Capture each node's MAC/IP during discovery before relying on addresses.
+- Networking is fixed-DHCP via reservations on the router (eth0 MAC → IP); reflashing does not change
+  the MAC. Capture each node's MAC/IP during discovery before relying on addresses.
 
 ## Backlog
 
 The full 2026-07-02 review backlog (idempotency, token handling, GitHub API once-per-play, sample
-inventory pin, dead code) lives in the local `k3s-gitops/TODO.md` under "Repo review findings".
+inventory pin, dead code) lives in the local `k3s-gitops/TODO.md` under "Repo review findings"
+(gitignored).
