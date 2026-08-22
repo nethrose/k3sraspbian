@@ -6,9 +6,10 @@ Fork/derivative of [k3s-io/k3s-ansible](https://github.com/k3s-io/k3s-ansible), 
 (**public**).
 
 This repo provisions the *nodes*. Workloads on the cluster are managed separately by the
-`k3s-gitops` repo (Flux). For homelab-wide context and the full rebuild runbook, see the global
-`homelab-k3s-pi` skill; the step-by-step provisioning runbook is the project skill
-`.claude/skills/provision-k3s-pis`.
+`k3s-gitops` repo (Flux). For homelab-wide context and the full rebuild runbook, see the
+`homelab-k3s-pi` skill in the k3s-gitops repo
+(`../k3s-gitops/.claude/skills/homelab-k3s-pi/SKILL.md`); the step-by-step provisioning runbook
+is the project skill `.claude/skills/provision-k3s-pis`.
 
 ## Topology
 
@@ -38,6 +39,8 @@ This repo provisions the *nodes*. Workloads on the cluster are managed separatel
 ansible-playbook -i inventory/my-cluster/hosts.yml site.yml              # install
 ansible-playbook -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml  # after Flux + gateway
 ansible-playbook -i inventory/my-cluster/hosts.yml reset.yml           # teardown
+./scripts/fetch-kubeconfig.sh                # kubeconfig → ~/.kube/k3s-rbps.yaml
+./scripts/post-k3s-bootstrap.sh              # incl. the grafana-admin secret k3s-gitops waits on
 ```
 
 `homelab_admin_user` (`snuffy`) must match `gateway.ssh.gateway.username` in `k3s-gitops`.
