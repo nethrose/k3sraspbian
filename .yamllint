@@ -3,11 +3,9 @@ extends: default
 
 ignore: |
   roles/download/
-  roles/k3s/
   roles/prereq/
   roles/raspberrypi/
   roles/reset/
-  inventory/sample/
 
 rules:
   line-length:

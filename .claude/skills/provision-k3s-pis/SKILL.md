@@ -53,8 +53,7 @@ registered by the one-shot register Job in k3s-gitops (`sshResourceCreate`), **n
 ansible-playbook -i inventory/my-cluster/hosts.yml reset.yml
 ```
 
-Note: `reset.yml` currently targets `hosts: all` (includes the `homelab_nas` group) — scope-check the
-inventory before running.
+`reset.yml` targets the `k3s_cluster` group only; the NAS is never touched by it.
 
 ## Get the kubeconfig
 
@@ -75,5 +74,8 @@ Hand off to GitOps: bootstrap Flux from `k3s-gitops` (see the homelab rebuild ru
 
 - Running `site.yml`/`reset.yml` changes/destroys node state — confirm the inventory targets the
   intended Pis before running.
-- Both k3s roles print the join token via `debug` (and render it into `k3s-node.service`); treat
-  playbook output as a secret and never paste it into docs, rules, or commits.
+- The join token is written only to the root-only `k3s-node.service.env` and token tasks are
+  `no_log`, but `--diff` output can still show secrets; never paste playbook output into docs,
+  rules, or commits.
+- Re-running `site.yml` on a live cluster: pass `-e k3s_use_latest_version=false` unless you intend
+  a k3s upgrade, and note that `homelab_admin` removes the static admin SSH key by default.

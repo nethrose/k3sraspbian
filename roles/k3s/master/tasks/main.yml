@@ -1,82 +1,76 @@
 ---
-
 - name: Copy K3s service file
-  register: k3s_service
-  template:
-    src: "k3s.service.j2"
+  ansible.builtin.template:
+    src: k3s.service.j2
     dest: "{{ systemd_dir }}/k3s.service"
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
+  notify: Restart k3s
 
-- name: Enable and check K3s service
-  systemd:
+- name: Enable and start K3s service
+  ansible.builtin.systemd:
     name: k3s
-    daemon_reload: yes
-    state: restarted
-    enabled: yes
+    daemon_reload: true
+    state: started
+    enabled: true
+
+- name: Apply a changed unit before reading the join token
+  ansible.builtin.meta: flush_handlers
 
 - name: Wait for node-token
-  wait_for:
+  ansible.builtin.wait_for:
     path: /var/lib/rancher/k3s/server/node-token
 
-- name: Register node-token file access mode
-  stat:
-    path: /var/lib/rancher/k3s/server
-  register: p
-
-- name: Change file access node-token
-  file:
-    path: /var/lib/rancher/k3s/server
-    mode: "g+rx,o+rx"
+- name: Keep node-token root-only
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/node-token
+    owner: root
+    group: root
+    mode: "0600"
 
 - name: Read node-token from master
-  slurp:
+  ansible.builtin.slurp:
     src: /var/lib/rancher/k3s/server/node-token
   register: node_token
+  no_log: true
 
-- debug:
-    var: node_token.content | b64decode
-
-- name: Store Master node-token
-  set_fact:
-    token: "{{ node_token.content | b64decode | regex_replace('\n', '') }}"
-
-- name: Restore node-token file access
-  file:
-    path: /var/lib/rancher/k3s/server
-    mode: "{{ p.stat.mode }}"
+- name: Store master node-token
+  ansible.builtin.set_fact:
+    token: "{{ node_token.content | b64decode | trim }}"
+  no_log: true
 
 - name: Create directory .kube
-  file:
-    path: ~{{ ansible_user }}/.kube
+  ansible.builtin.file:
+    path: "~{{ ansible_user }}/.kube"
     state: directory
     owner: "{{ ansible_user }}"
     mode: "u=rwx,g=rx,o="
 
-- name: Copy config file to user home directory
-  copy:
+- name: Read cluster kubeconfig
+  ansible.builtin.slurp:
     src: /etc/rancher/k3s/k3s.yaml
-    dest: ~{{ ansible_user }}/.kube/config
-    remote_src: yes
+  register: k3s_kubeconfig
+  no_log: true
+
+- name: Write user kubeconfig pointed at the master IP
+  ansible.builtin.copy:
+    content: >-
+      {{ k3s_kubeconfig.content | b64decode
+         | replace('https://127.0.0.1:6443', 'https://' ~ master_ip ~ ':6443') }}
+    dest: "~{{ ansible_user }}/.kube/config"
     owner: "{{ ansible_user }}"
     mode: "u=rw,g=,o="
-
-- name: Replace https://localhost:6443 by https://master-ip:6443
-  command: >-
-    k3s kubectl config set-cluster default
-      --server=https://{{ master_ip }}:6443
-      --kubeconfig ~{{ ansible_user }}/.kube/config
-  changed_when: true
+  no_log: true
 
 - name: Create kubectl symlink
-  file:
+  ansible.builtin.file:
     src: /usr/local/bin/k3s
     dest: /usr/local/bin/kubectl
     state: link
 
 - name: Create crictl symlink
-  file:
+  ansible.builtin.file:
     src: /usr/local/bin/k3s
     dest: /usr/local/bin/crictl
     state: link

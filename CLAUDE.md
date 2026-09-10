@@ -49,23 +49,22 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
 
 ## Known gotchas (do not re-trip on these)
 
-- `ansible.cfg` defaults to `inventory/my-cluster/hosts.yml` on this Linux box. Its values carry
-  trailing ` ;` (Ansible strips them, verified) and `become = True` sits in the wrong section
-  (`[defaults]`, ignored) — playbooks set `become` explicitly so behavior is correct.
-- `inventory/sample/group_vars/all.yml` pins ancient `k3s_version: v1.17.5+k3s1` (public-repo
-  cosmetics only; `my-cluster` uses `k3s_use_latest_version: true`).
-- `roles/k3s/master` and `roles/k3s/node` use `systemd: state: restarted` — **every `site.yml` run
-  restarts the whole cluster**, changed or not. Known issue, fix pending (k3s-gitops `TODO.md`
-  review notes, 2026-07-02).
-- The join token is rendered into `k3s-node.service` (mode 0755) and `debug`-printed by both k3s
-  roles. Treat playbook output as secret; never paste it into docs, rules, or commits.
-- `reset.yml` targets `hosts: all`, which includes the NAS (`homelab_nas`) — scope-check before
-  running it.
-- `roles/k3s/node/tasks/main.yml` hardcodes `leader01.local` in `/etc/hosts` (unused by the join,
-  which uses `master_ip`) — keep leader naming consistent anyway.
+- `ansible.cfg` defaults to `inventory/my-cluster/hosts.yml` on this Linux box.
+- `inventory/sample/group_vars/all.yml` mirrors `my-cluster`: `k3s_use_latest_version: true` with a
+  pinned fallback. Pass `-e k3s_use_latest_version=false` to run against a live cluster without
+  upgrading k3s (the `download` role would otherwise fetch the newest binary).
+- The k3s roles are idempotent: units use `state: started` plus a restart handler, so an unchanged
+  run leaves k3s alone (verified 2026-09-09: second run `changed=0` on all nodes).
+- The join token lives only in `/etc/systemd/system/k3s-node.service.env` (root, 0600,
+  `K3S_TOKEN`); the unit is 0644 and token tasks are `no_log`. Still treat `--diff` output as
+  secret.
+- `reset.yml` targets `k3s_cluster` only; the NAS is out of scope by design.
+- `homelab_admin` with `homelab_admin_install_ssh_pubkey: false` (the `my-cluster` default)
+  **removes** the admin's static `authorized_keys` entry on every run — intentional, SSH auth is
+  via the Twingate gateway CA. Only flip it to `true` for a bootstrap where the gateway is not up.
 - `prereq` role contains upstream RHEL/SELinux tasks that are dead code on Pi OS (harmless).
-- CI (`.github/workflows/validate.yml`) runs yamllint + syntax-check on everything but
-  ansible-lint only on `homelab_admin`/`twingate_ssh_sshd` (legacy upstream roles skipped).
+- CI (`.github/workflows/validate.yml`) runs yamllint + syntax-check, and ansible-lint on
+  `homelab_admin`, `twingate_ssh_sshd`, `k3s`, `k3s_setup` (`prereq`/`download`/`reset` still skipped).
 
 ## Hardware / network
 
