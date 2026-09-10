@@ -1,5 +1,7 @@
 ---
-k3s_version: v1.17.5+k3s1
+# Resolved at run time from the GitHub releases API; set false to use the pin below.
+k3s_use_latest_version: true
+k3s_version: v1.31.0+k3s1
 ansible_user: pi
 systemd_dir: /etc/systemd/system
 master_ip: "{{ hostvars[groups['k3sleaders'][0]]['ansible_host'] | default(groups['k3sleaders'][0]) }}"
