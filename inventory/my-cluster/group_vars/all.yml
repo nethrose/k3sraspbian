@@ -1,7 +1,8 @@
 ---
-# Used only when k3s_use_latest_version is false (rollback / testing).
+# Pinned to the version the cluster runs today. Bump one minor at a time to upgrade
+# (see README.md "Upgrading k3s"), then re-run site.yml.
 k3s_version: v1.31.0+k3s1
-k3s_use_latest_version: true
+k3s_use_latest_version: false
 # Modern Pi OS (kernel 6.18+) is nftables-only; leave false unless ip_tables.ko exists.
 k3s_use_iptables_legacy: false
 systemd_dir: /etc/systemd/system

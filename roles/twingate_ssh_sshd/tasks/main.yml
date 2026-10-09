@@ -37,3 +37,20 @@
       # Managed by Ansible (twingate-ssh-sshd.yml). Trust certs signed by the Twingate gateway User CA.
       TrustedUserCAKeys {{ twingate_sshd_trusted_user_ca_keys_path }}
   notify: reload sshd
+
+# Some sshd_config files (e.g. OpenMediaVault's) don't `Include` sshd_config.d, so the
+# drop-in above is silently ignored. Fall back to editing sshd_config directly when that's
+# the case, instead of requiring a human to remember the manual step on every NAS reinstall.
+- name: Check whether sshd_config includes sshd_config.d
+  ansible.builtin.command: grep -Eq '^\s*Include\s+.*sshd_config\.d' /etc/ssh/sshd_config
+  register: sshd_config_includes_dropins
+  changed_when: false
+  failed_when: false
+
+- name: Trust Twingate gateway User CA directly in sshd_config (no sshd_config.d support)
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^TrustedUserCAKeys\\s"
+    line: "TrustedUserCAKeys {{ twingate_sshd_trusted_user_ca_keys_path }}"
+  when: sshd_config_includes_dropins.rc != 0
+  notify: reload sshd
