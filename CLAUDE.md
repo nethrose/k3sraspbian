@@ -50,9 +50,9 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
 ## Known gotchas (do not re-trip on these)
 
 - `ansible.cfg` defaults to `inventory/my-cluster/hosts.yml` on this Linux box.
-- `inventory/sample/group_vars/all.yml` mirrors `my-cluster`: `k3s_use_latest_version: true` with a
-  pinned fallback. Pass `-e k3s_use_latest_version=false` to run against a live cluster without
-  upgrading k3s (the `download` role would otherwise fetch the newest binary).
+- `inventory/my-cluster` pins `k3s_version` (`v1.31.0+k3s1`) with `k3s_use_latest_version: false`, so
+  re-running `site.yml` does not upgrade k3s. Upgrade one minor at a time by bumping the pin (README
+  "Upgrading k3s"). `inventory/sample` still defaults to `k3s_use_latest_version: true`.
 - The k3s roles are idempotent: units use `state: started` plus a restart handler, so an unchanged
   run leaves k3s alone (verified 2026-09-09: second run `changed=0` on all nodes).
 - The join token lives only in `/etc/systemd/system/k3s-node.service.env` (root, 0600,

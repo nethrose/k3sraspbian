@@ -16,8 +16,8 @@ repo `CLAUDE.md`.
    hosts/users. Confirm `ansible_user` and host reachability (reserved IPs; SSH user = hostname).
 3. Passwordless SSH (key-based) to every node must work: `ssh <user>@<host> true`
    (helper: `./scripts/verify-ssh.sh`).
-4. Consider pinning a current `k3s_version` in `group_vars/all.yml` for reproducible rebuilds
-   (otherwise `roles/k3s_setup` resolves the latest release at run time).
+4. Pin `k3s_version` in `group_vars/all.yml` with `k3s_use_latest_version: false` (`my-cluster` does);
+   otherwise `roles/k3s_setup` resolves the latest release at run time.
 
 ## Install
 
@@ -45,7 +45,8 @@ Installs `TrustedUserCAKeys` on every Pi from the committed pubkey
 **`twingate_gateway_user_ca_pubkey`** (the gateway's manual SSH User CA — `ssh_ca.pub` from
 k3s-gitops `scripts/gen-gateway-cas.sh`); no gateway-pod-log scraping. Per-host SSH endpoints are
 registered by the one-shot register Job in k3s-gitops (`sshResourceCreate`), **not** by
-`TwingateResource` CRs. NAS (`jellyfin.ssh`) uses `homelab-nas.yml` instead (separate OMV bootstrap).
+`TwingateResource` CRs. NAS (`jellyfin.ssh`) uses `homelab-nas.yml` instead (separate OMV bootstrap); the role falls back to
+writing `sshd_config` directly when it lacks `Include sshd_config.d`, so no manual OMV step.
 
 ## Teardown
 
@@ -77,5 +78,5 @@ Hand off to GitOps: bootstrap Flux from `k3s-gitops` (see the homelab rebuild ru
 - The join token is written only to the root-only `k3s-node.service.env` and token tasks are
   `no_log`, but `--diff` output can still show secrets; never paste playbook output into docs,
   rules, or commits.
-- Re-running `site.yml` on a live cluster: pass `-e k3s_use_latest_version=false` unless you intend
-  a k3s upgrade, and note that `homelab_admin` removes the static admin SSH key by default.
+- Re-running `site.yml` on a live cluster: `my-cluster` is pinned, so k3s is not upgraded; to upgrade,
+  bump `k3s_version` one minor at a time (README "Upgrading k3s"). Note that `homelab_admin` removes the static admin SSH key by default.

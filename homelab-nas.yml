@@ -10,10 +10,10 @@
 #
 # After this: ssh snuffy@jellyfin.ssh via Twingate.
 #
-# OMV often ignores sshd_config.d drop-ins. If gateway SSH hangs after the banner, run on the NAS:
-#   sudo sshd -T | grep -i trusteduserca
-# If it shows "none", append TrustedUserCAKeys to /etc/ssh/sshd_config (see k3s-gitops
-# docs/twingate-ssh-gateway.md).
+# OMV often ignores sshd_config.d drop-ins (no `Include .../sshd_config.d/*.conf` in its
+# sshd_config). roles/twingate_ssh_sshd detects that and falls back to writing
+# TrustedUserCAKeys directly into sshd_config, so no manual step is needed here. If gateway
+# SSH still hangs after the banner, run on the NAS: sudo sshd -T | grep -i trusteduserca
 
 - hosts: homelab_nas
   gather_facts: false
