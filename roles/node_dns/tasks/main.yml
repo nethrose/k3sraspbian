@@ -1,0 +1,72 @@
+---
+# Keeps k3s nodes resolving via fixed public DNS, independent of whatever the LAN's
+# router/DHCP hands out (e.g. a Pi-hole), so CoreDNS and in-cluster Twingate connectors
+# keep working during a Pi-hole outage.
+- name: Gather service facts to detect the active DNS/network manager
+  ansible.builtin.service_facts:
+
+- name: Determine whether NetworkManager is active
+  ansible.builtin.set_fact:
+    node_dns_networkmanager_active: >-
+      {{ (ansible_facts.services['NetworkManager.service'].state | default('')) == 'running' }}
+
+- name: Determine whether dhcpcd is active
+  ansible.builtin.set_fact:
+    node_dns_dhcpcd_active: >-
+      {{ (ansible_facts.services['dhcpcd.service'].state | default('')) == 'running' }}
+
+- name: Determine whether systemd-resolved is active
+  ansible.builtin.set_fact:
+    node_dns_resolved_active: >-
+      {{ (ansible_facts.services['systemd-resolved.service'].state | default('')) == 'running' }}
+
+- name: Fail when no recognized DNS manager is active
+  ansible.builtin.fail:
+    msg: >-
+      Neither NetworkManager nor dhcpcd is active on {{ inventory_hostname }}, so static
+      node_dns_servers cannot be applied persistently through a supported mechanism.
+      Inspect DNS management on this host manually and extend roles/node_dns.
+  when: not node_dns_networkmanager_active and not node_dns_dhcpcd_active
+
+- name: Configure static DNS via NetworkManager global DNS
+  when: node_dns_networkmanager_active
+  block:
+    - name: Write NetworkManager global DNS drop-in
+      ansible.builtin.template:
+        src: networkmanager-dns.conf.j2
+        dest: /etc/NetworkManager/conf.d/10-node-dns.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload NetworkManager DNS
+
+- name: Configure static DNS via dhcpcd
+  when: node_dns_dhcpcd_active and not node_dns_networkmanager_active
+  block:
+    - name: Ensure static domain_name_servers in dhcpcd.conf
+      ansible.builtin.blockinfile:
+        path: /etc/dhcpcd.conf
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - node_dns"
+        block: "static domain_name_servers={{ node_dns_servers | join(' ') }}"
+      notify: Restart dhcpcd
+
+- name: Apply DNS manager config changes before checking resolv.conf
+  ansible.builtin.meta: flush_handlers
+
+- name: Check how /etc/resolv.conf is linked
+  ansible.builtin.stat:
+    path: /etc/resolv.conf
+  register: node_dns_resolv_conf_stat
+
+- name: Detect a systemd-resolved stub resolv.conf
+  ansible.builtin.set_fact:
+    node_dns_stub_resolver: >-
+      {{ node_dns_resolved_active and
+         ('stub-resolv.conf' in (node_dns_resolv_conf_stat.stat.lnk_target | default(''))) }}
+
+# k3s passes this path to kubelet and to the CoreDNS forward target it generates;
+# only set it when the default /etc/resolv.conf would be the 127.0.0.53 stub.
+- name: Set the k3s --resolv-conf flag when a stub resolver is in play
+  ansible.builtin.set_fact:
+    k3s_resolv_conf_flag: >-
+      {{ '--resolv-conf=/run/systemd/resolve/resolv.conf' if node_dns_stub_resolver else '' }}

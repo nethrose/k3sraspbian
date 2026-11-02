@@ -19,9 +19,14 @@ is the project skill `.claude/skills/provision-k3s-pis`.
 
 ## Layout
 
-- `site.yml` — install: on `k3s_cluster` runs `homelab_admin` (user `snuffy`), then `k3s_setup`,
-  `prereq`, `download`, `raspberrypi`; then `k3s/master` on `k3sleaders` and `k3s/node` on
-  `k3sfollowers`.
+- `site.yml` — install: on `k3s_cluster` runs `node_dns`, then `homelab_admin` (user `snuffy`),
+  `k3s_setup`, `prereq`, `download`, `raspberrypi`; then `k3s/master` on `k3sleaders` and
+  `k3s/node` on `k3sfollowers`.
+- `roles/node_dns` — pins each node's DNS to `node_dns_servers` (public resolvers) via
+  NetworkManager global DNS or `dhcpcd.conf`, whichever manager is detected active; fails closed
+  if neither is active. Sets `k3s_resolv_conf_flag` (consumed by the k3s service templates as
+  `--resolv-conf`) only if `/etc/resolv.conf` is a `systemd-resolved` stub. See README.md
+  "Node DNS (Pi-hole compatibility)" for why and how to verify.
 - `twingate-ssh-sshd.yml` — install `TrustedUserCAKeys` on k3s Pis from
   `twingate_gateway_user_ca_pubkey` (k3s-gitops `scripts/gen-gateway-cas.sh`). NAS: `homelab-nas.yml`
   only.
