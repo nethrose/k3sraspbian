@@ -114,11 +114,16 @@ turns out to be a `systemd-resolved` stub (`127.0.0.53`), the role also sets
 `k3s_resolv_conf_flag`, which `k3s server`/`k3s agent` pick up via `--resolv-conf` so CoreDNS
 doesn't try to forward to the stub — no other k3s flags are touched.
 
-Apply it (also runs as part of the normal `site.yml` install):
+`roles/node_dns` is tagged `node_dns`, so it can run on its own without touching the rest of
+`site.yml` (k3s, Pi prereqs, the admin user). Apply just the DNS change:
 
 ```fish
-ansible-playbook -i inventory/my-cluster/hosts.yml site.yml
+ansible-playbook -i inventory/my-cluster/hosts.yml site.yml --tags node_dns
 ```
+
+A full `ansible-playbook -i inventory/my-cluster/hosts.yml site.yml` (no `--tags`) is only needed
+when the `systemd-resolved` stub case above sets `k3s_resolv_conf_flag` — that changes the k3s
+unit files and restarts `k3s`/`k3s-node` on every node, so the k3s roles need to run too.
 
 Verify on a node (SSH or Twingate SSH):
 
