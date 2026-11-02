@@ -69,7 +69,7 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
   via the Twingate gateway CA. Only flip it to `true` for a bootstrap where the gateway is not up.
 - `prereq` role contains upstream RHEL/SELinux tasks that are dead code on Pi OS (harmless).
 - CI (`.github/workflows/validate.yml`) runs yamllint + syntax-check, and ansible-lint on
-  `homelab_admin`, `twingate_ssh_sshd`, `k3s`, `k3s_setup` (`prereq`/`download`/`reset` still skipped).
+  `homelab_admin`, `twingate_ssh_sshd`, `k3s`, `k3s_setup`, `node_dns` (`prereq`/`download`/`reset` still skipped).
 
 ## Hardware / network
 
