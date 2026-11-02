@@ -1,0 +1,9 @@
+---
+- name: Reload NetworkManager DNS
+  ansible.builtin.command: nmcli general reload conf,dns
+  changed_when: false
+
+- name: Restart dhcpcd
+  ansible.builtin.systemd:
+    name: dhcpcd
+    state: restarted

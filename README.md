@@ -91,6 +91,50 @@ Connect via Twingate SSH: `ssh <homelab_admin_user>@leader01.ssh` (after gateway
 | `k3s_version` | `v1.31.0+k3s1` | Pinned version installed when `k3s_use_latest_version` is `false` |
 | `homelab_admin_user` | `homelab` | Shared admin + Twingate SSH upstream user |
 | `homelab_admin_ssh_pubkey_file` | `~/.ssh/id_rsa.pub` | SSH key for admin user |
+| `node_dns_servers` | `[1.1.1.1, 9.9.9.9]` | Public DNS the k3s nodes resolve through directly (see "Node DNS" below) |
+
+## Node DNS (Pi-hole compatibility)
+
+`roles/node_dns` pins every k3s node's DNS to `node_dns_servers` (public resolvers, not the
+router/DHCP-supplied DNS), persistently across reboots and DHCP renewals. This keeps the nodes —
+and therefore CoreDNS (which forwards to the node's `/etc/resolv.conf`) and any in-cluster
+Twingate connector — resolving even if you point your router's DNS at a Pi-hole on the LAN and
+that Pi-hole goes down. The NAS and the Pi-hole deployment itself are out of scope for this repo.
+
+It detects which DNS manager is active on each node and uses that manager's supported, idempotent
+mechanism:
+
+- **NetworkManager** (Raspberry Pi OS Bookworm/Trixie, the current default): a global DNS drop-in
+  at `/etc/NetworkManager/conf.d/10-node-dns.conf`, applied with `nmcli general reload conf,dns`.
+- **dhcpcd** (Raspberry Pi OS Bullseye and earlier): a `static domain_name_servers=...` line
+  managed in `/etc/dhcpcd.conf`, applied with a `dhcpcd` restart.
+
+If neither is active, the play fails on that host instead of guessing. If `/etc/resolv.conf`
+turns out to be a `systemd-resolved` stub (`127.0.0.53`), the role also sets
+`k3s_resolv_conf_flag`, which `k3s server`/`k3s agent` pick up via `--resolv-conf` so CoreDNS
+doesn't try to forward to the stub — no other k3s flags are touched.
+
+`roles/node_dns` is tagged `node_dns`, so it can run on its own without touching the rest of
+`site.yml` (k3s, Pi prereqs, the admin user). Apply just the DNS change:
+
+```fish
+ansible-playbook -i inventory/my-cluster/hosts.yml site.yml --tags node_dns
+```
+
+A full `ansible-playbook -i inventory/my-cluster/hosts.yml site.yml` (no `--tags`) is only needed
+when the `systemd-resolved` stub case above sets `k3s_resolv_conf_flag` — that changes the k3s
+unit files and restarts `k3s`/`k3s-node` on every node, so the k3s roles need to run too.
+
+Verify on a node (SSH or Twingate SSH):
+
+```fish
+# Confirm the node itself resolves through the public servers, not the router/Pi-hole
+cat /etc/resolv.conf
+resolvectl status   # if present; NetworkManager nodes show the DNS servers per interface
+
+# Confirm CoreDNS in the cluster resolves correctly from a node that's off Pi-hole
+kubectl run dns-test --rm -it --restart=Never --image=busybox:1.36 -- nslookup kubernetes.default
+```
 
 ## Upgrading k3s
 

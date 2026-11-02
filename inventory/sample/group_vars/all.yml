@@ -7,3 +7,10 @@ systemd_dir: /etc/systemd/system
 master_ip: "{{ hostvars[groups['k3sleaders'][0]]['ansible_host'] | default(groups['k3sleaders'][0]) }}"
 extra_server_args: ""
 extra_agent_args: ""
+
+# Public DNS the k3s nodes resolve through directly, independent of DHCP/router DNS
+# (e.g. a LAN Pi-hole), so CoreDNS and in-cluster Twingate connectors keep working
+# during a Pi-hole outage.
+node_dns_servers:
+  - 1.1.1.1
+  - 9.9.9.9

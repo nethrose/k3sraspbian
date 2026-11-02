@@ -8,7 +8,7 @@ Type=notify
 ExecStartPre=-/sbin/modprobe br_netfilter
 ExecStartPre=-/sbin/modprobe overlay
 EnvironmentFile={{ systemd_dir }}/k3s-node.service.env
-ExecStart=/usr/local/bin/k3s agent --server https://{{ master_ip }}:6443 {{ extra_agent_args | default("") }}
+ExecStart=/usr/local/bin/k3s agent --server https://{{ master_ip }}:6443{{ k3s_resolv_conf_flag | default("") }} {{ extra_agent_args | default("") }}
 KillMode=process
 Delegate=yes
 # Having non-zero Limit*s causes performance problems due to accounting overhead

@@ -1,0 +1,7 @@
+# Managed by k3sraspbian roles/node_dns. Overrides per-connection DNS so this node
+# resolves through fixed public servers regardless of what DHCP offers.
+[global-dns]
+searches=
+
+[global-dns-domain-*]
+servers={{ node_dns_servers | join(',') }}

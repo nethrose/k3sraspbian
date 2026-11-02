@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "3.13"
 
       - name: Install lint tools
         run: pip install yamllint ansible-lint ansible
@@ -26,11 +26,14 @@ jobs:
           yamllint \
             site.yml homelab-nas.yml twingate-ssh-sshd.yml \
             inventory/my-cluster \
-            roles/homelab_admin roles/twingate_ssh_sshd roles/k3s roles/k3s_setup reset.yml inventory/sample \
+            roles/homelab_admin roles/twingate_ssh_sshd roles/k3s roles/k3s_setup roles/node_dns \
+            reset.yml inventory/sample \
             .github/workflows
 
       - name: ansible-lint
-        run: ansible-lint homelab-nas.yml twingate-ssh-sshd.yml roles/homelab_admin roles/twingate_ssh_sshd roles/k3s roles/k3s_setup
+        run: |
+          ansible-lint homelab-nas.yml twingate-ssh-sshd.yml \
+            roles/homelab_admin roles/twingate_ssh_sshd roles/k3s roles/k3s_setup roles/node_dns
 
       - name: Ansible syntax-check
         run: |
