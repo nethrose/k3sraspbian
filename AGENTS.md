@@ -89,6 +89,10 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
   per-host-group behavior in those two roles should follow the same pattern: a role default that
   preserves today's behavior, overridden only in that group's `group_vars`.
 - `prereq` role contains upstream RHEL/SELinux tasks that are dead code on Pi OS (harmless).
+- `inventory/my-cluster` sets `extra_server_args: "--disable=traefik"` (README "Configuration"):
+  nothing on this cluster uses the bundled Traefik ingress controller. The flag goes into the
+  leader's `k3s.service` unit (`roles/k3s/master/templates/k3s.service.j2`), so changing it
+  restarts the k3s server only, per the role's `Restart k3s` handler — never the agents.
 - CI (`.github/workflows/validate.yml`) runs yamllint + syntax-check, and ansible-lint on
   `homelab_admin`, `twingate_ssh_sshd`, `k3s`, `k3s_setup`, `node_dns`, `download`,
   `unattended_upgrades`, `upgrade.yml`, `patching.yml` (`prereq`/`reset` still skipped), plus

@@ -8,7 +8,10 @@ k3s_use_latest_version: false
 k3s_use_iptables_legacy: false
 systemd_dir: /etc/systemd/system
 master_ip: "{{ hostvars[groups['k3sleaders'][0]]['ansible_default_ipv4']['address'] }}"
-extra_server_args: ""
+# Nothing on this cluster uses the bundled Traefik ingress controller (no Ingress or Traefik
+# custom resources exist); disabling it stops it listening on :80/:443 on every node and removes
+# it as a source of advisories. Remove this flag to let k3s redeploy Traefik.
+extra_server_args: "--disable=traefik"
 extra_agent_args: ""
 
 # Public DNS the k3s nodes resolve through directly, independent of DHCP/router DNS
