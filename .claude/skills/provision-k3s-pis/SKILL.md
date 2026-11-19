@@ -78,5 +78,5 @@ Hand off to GitOps: bootstrap Flux from `k3s-gitops` (see the homelab rebuild ru
 - The join token is written only to the root-only `k3s-node.service.env` and token tasks are
   `no_log`, but `--diff` output can still show secrets; never paste playbook output into docs,
   rules, or commits.
-- Re-running `site.yml` on a live cluster: `my-cluster` is pinned, so k3s is not upgraded; to upgrade,
-  bump `k3s_version` one minor at a time (README "Upgrading k3s"). Note that `homelab_admin` removes the static admin SSH key by default.
+- Re-running `site.yml` on a live cluster: `my-cluster` is pinned to the running version (the `download` role
+  refuses a downgrade); to upgrade, bump `k3s_version` one minor at a time and run `upgrade.yml` (README "Upgrading k3s"). Note that `homelab_admin` removes the static admin SSH key by default.

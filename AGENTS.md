@@ -43,6 +43,7 @@ is the project skill `.claude/skills/provision-k3s-pis`.
 ```bash
 ansible-playbook -i inventory/my-cluster/hosts.yml site.yml              # install
 ansible-playbook -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml  # after Flux + gateway
+ansible-playbook -i inventory/my-cluster/hosts.yml upgrade.yml         # rolling k3s upgrade to the pin
 ansible-playbook -i inventory/my-cluster/hosts.yml reset.yml           # teardown
 ./scripts/fetch-kubeconfig.sh                # kubeconfig → ~/.kube/k3s-rbps.yaml
 ./scripts/post-k3s-bootstrap.sh              # incl. the grafana-admin secret k3s-gitops waits on
