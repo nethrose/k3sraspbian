@@ -45,8 +45,8 @@ Installs `TrustedUserCAKeys` on every Pi from the committed pubkey
 **`twingate_gateway_user_ca_pubkey`** (the gateway's manual SSH User CA — `ssh_ca.pub` from
 k3s-gitops `scripts/gen-gateway-cas.sh`); no gateway-pod-log scraping. Per-host SSH endpoints are
 registered by the one-shot register Job in k3s-gitops (`sshResourceCreate`), **not** by
-`TwingateResource` CRs. NAS (`jellyfin.ssh`) uses `homelab-nas.yml` instead (separate OMV bootstrap); the role falls back to
-writing `sshd_config` directly when it lacks `Include sshd_config.d`, so no manual OMV step.
+`TwingateResource` CRs. NAS (`jellyfin.ssh`) uses `homelab-nas.yml` instead (separate OMV bootstrap); OMV regenerates `sshd_config`, so the role sets
+the CA through OMV's `Ssh` RPC there (see `homelab-nas.yml` header and AGENTS.md), no manual OMV step.
 
 ## Teardown
 

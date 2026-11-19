@@ -1,0 +1,20 @@
+---
+# Extra secondary groups appended to homelab_admin_group for the admin user.
+# homelab_nas adds `_ssh` (OMV's sshd only admits `root` and `_ssh`).
+homelab_admin_extra_groups: []
+
+# When true, the user task's `append` flips to false, so the admin user's secondary
+# groups are set to exactly [homelab_admin_group] + homelab_admin_extra_groups, removing
+# membership in anything else (root, disk, shadow, kmem, ...). Off by default to preserve
+# today's additive (append-only) group management on the Pi nodes. homelab_nas turns
+# this on.
+homelab_admin_exclusive_groups: false
+
+# Vendor/default accounts to lock (passwd -l) so a rebuilt host doesn't come back with
+# a guessable vendor password. Empty by default; homelab_nas sets root and pi.
+homelab_admin_lock_vendor_accounts: []
+
+# Passwordless sudo for the admin user via /etc/sudoers.d/<user>. On by default
+# (today's behavior). homelab_nas turns this off: that grant was removed by hand on the
+# live NAS and must not be silently restored by a re-run.
+homelab_admin_passwordless_sudo: true
