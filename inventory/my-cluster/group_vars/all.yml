@@ -2,7 +2,7 @@
 # Must equal the version the nodes run today (`k3s --version`); the download role replaces
 # /usr/local/bin/k3s with this release on every run and refuses a downgrade or multi-minor jump.
 # Bump one minor at a time, then run upgrade.yml (see README.md "Upgrading k3s").
-k3s_version: v1.36.5+k3s1
+k3s_version: v1.36.6+k3s1
 k3s_use_latest_version: false
 # Modern Pi OS (kernel 6.18+) is nftables-only; leave false unless ip_tables.ko exists.
 k3s_use_iptables_legacy: false
