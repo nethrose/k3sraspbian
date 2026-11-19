@@ -17,6 +17,7 @@
     value: "1"
     state: present
     reload: yes
+  when: prereq_enable_ipv6_forwarding
 
 - name: Add br_netfilter to /etc/modules-load.d/
   copy:

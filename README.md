@@ -96,6 +96,7 @@ Connect via Twingate SSH: `ssh <homelab_admin_user>@leader01.ssh` (after gateway
 | `node_dns_servers` | `[1.1.1.1, 9.9.9.9]` | Public DNS the k3s nodes resolve through directly (see "Node DNS" below) |
 | `extra_server_args` | `--disable=traefik` in `my-cluster` | Extra flags appended to `k3s server`; `my-cluster` disables the bundled Traefik ingress controller (unused on this cluster) so it stops listening on :80/:443 on every node. Changing this value changes the leader's `k3s.service` unit, which restarts the k3s server |
 | `extra_agent_args` | `""` | Extra flags appended to `k3s agent` |
+| `prereq_enable_ipv6_forwarding` | `true` (role default); `false` in `my-cluster` | Whether the `prereq` role sets `net.ipv6.conf.all.forwarding=1`. `my-cluster` is IPv4-only and its nodes don't run with it, so it's left untouched |
 
 ## Node DNS (Pi-hole compatibility)
 
