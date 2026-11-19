@@ -28,6 +28,17 @@
       Inspect DNS management on this host manually and extend roles/node_dns.
   when: not node_dns_networkmanager_active and not node_dns_dhcpcd_active
 
+- name: Check how /etc/resolv.conf is linked
+  ansible.builtin.stat:
+    path: /etc/resolv.conf
+  register: node_dns_resolv_conf_stat
+
+- name: Detect a systemd-resolved stub resolv.conf
+  ansible.builtin.set_fact:
+    node_dns_stub_resolver: >-
+      {{ node_dns_resolved_active and
+         ('stub-resolv.conf' in (node_dns_resolv_conf_stat.stat.lnk_target | default(''))) }}
+
 - name: Configure static DNS via NetworkManager global DNS
   when: node_dns_networkmanager_active
   block:
@@ -45,32 +56,36 @@
     # if an earlier run wrote the file but a prior reload failed or was never
     # applied. Check what NetworkManager is actually resolving through right now
     # (its own output, /etc/resolv.conf, which 'dns-rc' rewrites) and notify the
-    # reload whenever it doesn't yet list every configured server, so the role
-    # converges regardless of why the reload didn't happen before. Read-only, so
-    # this (unlike the handler it may notify) also runs under --check.
+    # reload whenever it lists a server outside the first three configured ones
+    # (glibc/NM write at most three) or none at all, so the role converges
+    # regardless of why the reload didn't happen before. Skipped behind a
+    # systemd-resolved stub, where NetworkManager hands DNS to resolved and
+    # /etc/resolv.conf says nothing about node_dns_servers. Read-only, so this
+    # (unlike the handler it may notify) also runs under --check.
     - name: Read current /etc/resolv.conf
       ansible.builtin.slurp:
         src: /etc/resolv.conf
       register: node_dns_resolv_conf_slurp
+      when: not node_dns_stub_resolver
 
     - name: Determine whether NetworkManager already serves node_dns_servers
       ansible.builtin.set_fact:
         node_dns_nm_dns_live: >-
-          {{ (node_dns_servers | difference(
-                (node_dns_resolv_conf_slurp.content | b64decode).splitlines()
-                | select('match', '^\s*nameserver\s+\S+\s*$')
-                | map('regex_replace', '^\s*nameserver\s+(\S+)\s*$', '\1')
-                | list
-              ) | length) == 0 }}
+          {%- set present = (node_dns_resolv_conf_slurp.content | b64decode).splitlines()
+              | select('match', '^\s*nameserver\s+\S+\s*$')
+              | map('regex_replace', '^\s*nameserver\s+(\S+)\s*$', '\\1')
+              | list -%}
+          {{ (present | length) > 0 and (present | difference(node_dns_servers[:3]) | length) == 0 }}
+      when: not node_dns_stub_resolver
 
     - name: Reload NetworkManager DNS when the configured servers are not yet live
       ansible.builtin.debug:
         msg: >-
           /etc/NetworkManager/conf.d/10-node-dns.conf is present but /etc/resolv.conf
-          does not yet list every server in node_dns_servers; a reload is needed.
+          does not yet list only servers from node_dns_servers; a reload is needed.
       changed_when: true
       notify: Reload NetworkManager DNS
-      when: not node_dns_nm_dns_live
+      when: not node_dns_stub_resolver and not node_dns_nm_dns_live
 
 - name: Configure static DNS via dhcpcd
   when: node_dns_dhcpcd_active and not node_dns_networkmanager_active
@@ -84,17 +99,6 @@
 
 - name: Apply DNS manager config changes before checking resolv.conf
   ansible.builtin.meta: flush_handlers
-
-- name: Check how /etc/resolv.conf is linked
-  ansible.builtin.stat:
-    path: /etc/resolv.conf
-  register: node_dns_resolv_conf_stat
-
-- name: Detect a systemd-resolved stub resolv.conf
-  ansible.builtin.set_fact:
-    node_dns_stub_resolver: >-
-      {{ node_dns_resolved_active and
-         ('stub-resolv.conf' in (node_dns_resolv_conf_stat.stat.lnk_target | default(''))) }}
 
 # k3s passes this path to kubelet and to the CoreDNS forward target it generates;
 # only set it when the default /etc/resolv.conf would be the 127.0.0.53 stub. The
