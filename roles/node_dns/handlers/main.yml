@@ -1,6 +1,11 @@
 ---
 - name: Reload NetworkManager DNS
-  ansible.builtin.command: nmcli general reload conf,dns
+  # 'conf' re-reads NetworkManager.conf (and conf.d/*.conf, including our global-dns
+  # drop-in); 'dns-rc' then rewrites /etc/resolv.conf from that reloaded config. 'dns'
+  # is not a valid flag (nmcli: "Allowed flags are: conf,dns-rc,dns-full") and 'dns-full'
+  # additionally restarts the DNS plugin, which nmcli's own help says briefly interrupts
+  # name resolution and is meant for dnsmasq-plugin config, not needed here.
+  ansible.builtin.command: nmcli general reload conf,dns-rc
   changed_when: false
 
 - name: Restart dhcpcd

@@ -40,6 +40,38 @@
         mode: "0644"
       notify: Reload NetworkManager DNS
 
+    # The template task above only notifies the reload when the drop-in's content
+    # changes, so a rerun where the file already matches never notifies it - even
+    # if an earlier run wrote the file but a prior reload failed or was never
+    # applied. Check what NetworkManager is actually resolving through right now
+    # (its own output, /etc/resolv.conf, which 'dns-rc' rewrites) and notify the
+    # reload whenever it doesn't yet list every configured server, so the role
+    # converges regardless of why the reload didn't happen before. Read-only, so
+    # this (unlike the handler it may notify) also runs under --check.
+    - name: Read current /etc/resolv.conf
+      ansible.builtin.slurp:
+        src: /etc/resolv.conf
+      register: node_dns_resolv_conf_slurp
+
+    - name: Determine whether NetworkManager already serves node_dns_servers
+      ansible.builtin.set_fact:
+        node_dns_nm_dns_live: >-
+          {{ (node_dns_servers | difference(
+                (node_dns_resolv_conf_slurp.content | b64decode).splitlines()
+                | select('match', '^\s*nameserver\s+\S+\s*$')
+                | map('regex_replace', '^\s*nameserver\s+(\S+)\s*$', '\1')
+                | list
+              ) | length) == 0 }}
+
+    - name: Reload NetworkManager DNS when the configured servers are not yet live
+      ansible.builtin.debug:
+        msg: >-
+          /etc/NetworkManager/conf.d/10-node-dns.conf is present but /etc/resolv.conf
+          does not yet list every server in node_dns_servers; a reload is needed.
+      changed_when: true
+      notify: Reload NetworkManager DNS
+      when: not node_dns_nm_dns_live
+
 - name: Configure static DNS via dhcpcd
   when: node_dns_dhcpcd_active and not node_dns_networkmanager_active
   block:
