@@ -6,6 +6,10 @@
     name: "{{ homelab_admin_group }}"
     state: present
 
+# NAS hardening (homelab_nas, item 12.2): the admin user left root/disk/shadow/kmem by
+# hand on the live NAS. homelab_admin_exclusive_groups flips the user task below to
+# append: false, so it alone keeps those groups off, and a rebuilt box doesn't come back
+# with them. No-op elsewhere: append stays true (default), which never removes a group.
 - name: Create homelab admin user
   ansible.builtin.user:
     name: "{{ homelab_admin_user }}"
@@ -15,19 +19,26 @@
     create_home: true
     state: present
 
-# NAS hardening (homelab_nas, item 12.2): the admin user left root/disk/shadow/kmem by
-# hand on the live NAS. homelab_admin_exclusive_groups flips the user task above to
-# append: false, so it alone keeps those groups off, and a rebuilt box doesn't come back
-# with them. No-op elsewhere: append stays true (default), which never removes a group.
-
 # NAS hardening (homelab_nas, item 12.0): lock the vendor/default accounts (root, pi) so a
 # rebuilt box doesn't come back with a guessable vendor password. Nobody logs in as them
 # day to day, so there's no lockout risk. Empty list elsewhere: no-op.
-- name: Lock vendor/default accounts
-  ansible.builtin.user:
-    name: "{{ item }}"
-    password_lock: true
+- name: Look up vendor/default accounts
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+    fail_key: false
   loop: "{{ homelab_admin_lock_vendor_accounts }}"
+  register: homelab_admin_vendor_lookup
+
+- name: Lock vendor/default accounts that exist
+  ansible.builtin.user:
+    name: "{{ item.item }}"
+    password_lock: true
+    create_home: false
+  loop: "{{ homelab_admin_vendor_lookup.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.ansible_facts.getent_passwd[item.item] is not none
 
 # Static pubkey is bootstrap-only. With gateway SSH CA trust, snuffy@*.ssh uses cert auth.
 # Set homelab_admin_install_ssh_pubkey: true only for first bootstrap before CA is on the node.
