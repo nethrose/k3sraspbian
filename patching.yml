@@ -1,0 +1,11 @@
+---
+# Unattended security updates for the k3s cluster nodes: unattended-upgrades installs
+# security-relevant packages overnight at a staggered time per node, flags when a
+# reboot is needed, and reports patch state as node_exporter metrics. It never reboots
+# a node itself; coordinated reboots are a separate change in k3s-gitops (kured).
+
+- name: Configure unattended security updates on k3s cluster nodes
+  hosts: k3s_cluster
+  become: true
+  roles:
+    - role: unattended_upgrades

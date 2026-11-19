@@ -1,0 +1,5 @@
+---
+# Staggers apt-daily-upgrade.timer (install) so package-triggered service restarts
+# (sshd, NetworkManager) don't land on all four nodes at once. follower03 holds a
+# Pi-hole replica and the MetalLB L2 announcer for 192.168.0.240.
+apt_upgrade_time: "01:15"

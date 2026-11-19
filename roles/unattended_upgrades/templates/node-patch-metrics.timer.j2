@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly node patch metrics for the node_exporter textfile collector
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

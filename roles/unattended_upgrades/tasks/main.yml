@@ -1,0 +1,152 @@
+---
+# Unattended security updates for k3s_cluster nodes (patching.yml). This role never
+# reboots a node: Unattended-Upgrade::Automatic-Reboot is false below, and coordinating
+# reboots against cluster health (Pi-hole, the API, kured) is a k3s-gitops concern.
+- name: Assert a staggered install time is set for this host
+  ansible.builtin.assert:
+    that:
+      - apt_upgrade_time is defined
+      - apt_upgrade_time is not none
+      - apt_upgrade_time | string | trim | length > 0
+    fail_msg: >-
+      apt_upgrade_time is not set for {{ inventory_hostname }}. Set it in host_vars/ to
+      stagger apt-daily-upgrade.timer across the cluster
+      (see inventory/my-cluster/host_vars/).
+
+- name: Install unattended-upgrades and apt-listchanges
+  ansible.builtin.apt:
+    name:
+      - unattended-upgrades
+      - apt-listchanges
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Configure APT periodic settings
+  ansible.builtin.template:
+    src: 20auto-upgrades.j2
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Configure unattended-upgrades origins and behavior
+  ansible.builtin.template:
+    src: 52unattended-upgrades-k3s.j2
+    dest: /etc/apt/apt.conf.d/52unattended-upgrades-k3s
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Create apt-daily.timer drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/apt-daily.timer.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Stagger apt-daily.timer (list refresh + download)
+  ansible.builtin.template:
+    src: apt-daily-timer-override.conf.j2
+    dest: /etc/systemd/system/apt-daily.timer.d/override.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart apt-daily timer
+
+- name: Create apt-daily-upgrade.timer drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/apt-daily-upgrade.timer.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Stagger apt-daily-upgrade.timer (install) per host
+  ansible.builtin.template:
+    src: apt-daily-upgrade-timer-override.conf.j2
+    dest: /etc/systemd/system/apt-daily-upgrade.timer.d/override.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart apt-daily-upgrade timer
+
+- name: Install the reboot-required sentinel script
+  ansible.builtin.copy:
+    src: node-reboot-required.sh
+    dest: "{{ unattended_upgrades_reboot_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Hook the reboot-required sentinel into dpkg
+  ansible.builtin.copy:
+    content: |
+      // Managed by Ansible (roles/unattended_upgrades). Pi OS kernel packages never
+      // create /run/reboot-required, so flag it ourselves after every dpkg run.
+      DPkg::Post-Invoke { "{{ unattended_upgrades_reboot_script }} || true"; };
+    dest: /etc/apt/apt.conf.d/99node-reboot-required
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Ensure the node_exporter textfile collector directory exists
+  ansible.builtin.file:
+    path: "{{ node_exporter_textfile_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the patch-metrics script
+  ansible.builtin.copy:
+    src: node-patch-metrics.sh
+    dest: "{{ unattended_upgrades_metrics_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Hook patch metrics into apt update/upgrade
+  ansible.builtin.copy:
+    content: |
+      // Managed by Ansible (roles/unattended_upgrades). Keeps the node_exporter
+      // textfile metrics fresh around every apt list refresh and dpkg run, in
+      // addition to the hourly node-patch-metrics.timer.
+      APT::Update::Post-Invoke-Success { "{{ unattended_upgrades_metrics_script }} || true"; };
+      DPkg::Post-Invoke { "{{ unattended_upgrades_metrics_script }} || true"; };
+    dest: /etc/apt/apt.conf.d/99node-patch-metrics
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install the patch-metrics systemd service unit
+  ansible.builtin.template:
+    src: node-patch-metrics.service.j2
+    dest: /etc/systemd/system/node-patch-metrics.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd daemon
+
+- name: Install the patch-metrics systemd timer unit
+  ansible.builtin.template:
+    src: node-patch-metrics.timer.j2
+    dest: /etc/systemd/system/node-patch-metrics.timer
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd daemon
+
+- name: Apply systemd unit changes before enabling the metrics timer
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start the hourly patch-metrics timer
+  ansible.builtin.systemd:
+    name: node-patch-metrics.timer
+    enabled: true
+    state: started
+
+- name: Run patch metrics once so the textfile exists immediately
+  ansible.builtin.command: "{{ unattended_upgrades_metrics_script }}"
+  changed_when: false
