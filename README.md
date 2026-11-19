@@ -88,7 +88,7 @@ Connect via Twingate SSH: `ssh <homelab_admin_user>@leader01.ssh` (after gateway
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `k3s_use_latest_version` | `false` in `my-cluster` (`true` in `sample`) | Fetch latest k3s from GitHub instead of using the pin below |
-| `k3s_version` | `v1.31.0+k3s1` | Pinned version installed when `k3s_use_latest_version` is `false` |
+| `k3s_version` | `v1.36.5+k3s1` | Pinned version installed when `k3s_use_latest_version` is `false` |
 | `homelab_admin_user` | `homelab` | Shared admin + Twingate SSH upstream user |
 | `homelab_admin_ssh_pubkey_file` | `~/.ssh/id_rsa.pub` | SSH key for admin user |
 | `node_dns_servers` | `[1.1.1.1, 9.9.9.9]` | Public DNS the k3s nodes resolve through directly (see "Node DNS" below) |
@@ -138,12 +138,15 @@ kubectl run dns-test --rm -it --restart=Never --image=busybox:1.36 -- nslookup k
 
 ## Upgrading k3s
 
-`my-cluster` pins `k3s_version` so re-running `site.yml` never jumps minors unexpectedly.
-To upgrade, step **one minor at a time**: bump `k3s_version` in
-`inventory/my-cluster/group_vars/all.yml` to the next minor (e.g. `v1.31.0+k3s1` →
-`v1.32.0+k3s1`), run `site.yml`, confirm the cluster is healthy, then repeat for the
-next minor. Do not set `k3s_use_latest_version: true` against a live cluster — it
-fetches whatever is newest on GitHub and can skip several minors in one run.
+`my-cluster` pins `k3s_version` so re-running `site.yml` never jumps minors unexpectedly; the
+`download` role also refuses to install anything older than what's already running, or a jump
+of more than one minor. To upgrade, step **one minor at a time**: bump `k3s_version` in
+`inventory/my-cluster/group_vars/all.yml` to the next minor (e.g. `v1.36.5+k3s1` →
+`v1.36.6+k3s1`), then run `upgrade.yml` — it upgrades the server first, then each agent one at
+a time, restarting k3s onto the new binary (`site.yml` alone only swaps the binary on disk and
+never restarts k3s). Confirm the cluster is healthy, then repeat for the next minor. Do not set
+`k3s_use_latest_version: true` against a live cluster — it fetches whatever is newest on
+GitHub and can skip several minors in one run.
 
 ## Scripts
 
