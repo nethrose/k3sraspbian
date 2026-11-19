@@ -109,7 +109,7 @@ It detects which DNS manager is active on each node and uses that manager's supp
 mechanism:
 
 - **NetworkManager** (Raspberry Pi OS Bookworm/Trixie, the current default): a global DNS drop-in
-  at `/etc/NetworkManager/conf.d/10-node-dns.conf`, applied with `nmcli general reload conf,dns`.
+  at `/etc/NetworkManager/conf.d/10-node-dns.conf`, applied with `nmcli general reload conf,dns-rc`.
 - **dhcpcd** (Raspberry Pi OS Bullseye and earlier): a `static domain_name_servers=...` line
   managed in `/etc/dhcpcd.conf`, applied with a `dhcpcd` restart.
 
