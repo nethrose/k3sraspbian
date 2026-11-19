@@ -141,8 +141,8 @@ kubectl run dns-test --rm -it --restart=Never --image=busybox:1.36 -- nslookup k
 `my-cluster` pins `k3s_version` so re-running `site.yml` never jumps minors unexpectedly; the
 `download` role also refuses to install anything older than what's already running, or a jump
 of more than one minor. To upgrade, step **one minor at a time**: bump `k3s_version` in
-`inventory/my-cluster/group_vars/all.yml` to the next minor (e.g. `v1.36.5+k3s1` →
-`v1.36.6+k3s1`), then run `upgrade.yml` — it upgrades the server first, then each agent one at
+`inventory/my-cluster/group_vars/all.yml` to the next minor (e.g. `v1.36.6+k3s1` →
+`v1.37.0+k3s1`), then run `upgrade.yml` — it upgrades the server first, then each agent one at
 a time, restarting k3s onto the new binary (`site.yml` alone only swaps the binary on disk and
 never restarts k3s). Confirm the cluster is healthy, then repeat for the next minor. Do not set
 `k3s_use_latest_version: true` against a live cluster — it fetches whatever is newest on
