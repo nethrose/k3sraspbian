@@ -66,6 +66,15 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
   `K3S_TOKEN`); the unit is 0644 and token tasks are `no_log`. Still treat `--diff` output as
   secret.
 - `reset.yml` targets `k3s_cluster` only; the NAS is out of scope by design.
+- `inventory/my-cluster` sets each host's `ansible_user` to a literal, not `"{{ inventory_hostname }}"`:
+  under `delegate_to`, `inventory_hostname` resolves to the delegating host, not the delegate target, so
+  a templated `ansible_user` silently connects as the wrong user (hit in `upgrade.yml`'s agent-wait task,
+  delegated to the leader — SSH was refused as the agent's own name). Any new `delegate_to` must use a
+  host whose `ansible_user` is literal, or set the user explicitly on the task.
+- Any read-only probe a later task's guard depends on (e.g. `roles/download`'s installed-version check)
+  needs `check_mode: false`: `command`/`shell` skip in `--check` by default, returning empty `stdout`, and
+  a guard that indexes into it crashes. A wait task gated on a restart that's a no-op in check mode needs
+  `when: not ansible_check_mode` instead, or it retries for the full `retries * delay` before failing.
 - `homelab_admin` with `homelab_admin_install_ssh_pubkey: false` (the `my-cluster` default)
   **removes** the admin's static `authorized_keys` entry on every run — intentional, SSH auth is
   via the Twingate gateway CA. Only flip it to `true` for a bootstrap where the gateway is not up.
