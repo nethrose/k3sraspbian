@@ -69,6 +69,13 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
 - `homelab_admin` with `homelab_admin_install_ssh_pubkey: false` (the `my-cluster` default)
   **removes** the admin's static `authorized_keys` entry on every run — intentional, SSH auth is
   via the Twingate gateway CA. Only flip it to `true` for a bootstrap where the gateway is not up.
+- The NAS (`homelab_nas`) is hardened differently from the Pi nodes (item 12, 2026-11-18):
+  admin user in `_ssh` not `root`, no passwordless sudo, `TrustedUserCAKeys` set through OMV's
+  `Ssh` RPC (OMV discards an sshd_config.d drop-in or a direct sshd_config edit). This is driven
+  entirely by `inventory/my-cluster/group_vars/homelab_nas.yml` overriding `homelab_admin` and
+  `twingate_ssh_sshd` role defaults; the Pi nodes keep the role defaults unchanged. Any new
+  per-host-group behavior in those two roles should follow the same pattern: a role default that
+  preserves today's behavior, overridden only in that group's `group_vars`.
 - `prereq` role contains upstream RHEL/SELinux tasks that are dead code on Pi OS (harmless).
 - CI (`.github/workflows/validate.yml`) runs yamllint + syntax-check, and ansible-lint on
   `homelab_admin`, `twingate_ssh_sshd`, `k3s`, `k3s_setup`, `node_dns`, `download`, `upgrade.yml`
