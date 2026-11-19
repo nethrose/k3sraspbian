@@ -4,6 +4,8 @@
   register: download_k3s_installed
   changed_when: false
   failed_when: false
+  # Read-only probe; run it in check mode too so the guard below always has a result to check.
+  check_mode: false
 
 # get_url replaces the binary whenever its checksum differs, and the running k3s picks the
 # new one up at its next restart. Refuse a downgrade or a multi-minor jump before that happens.

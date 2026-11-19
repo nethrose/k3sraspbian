@@ -25,6 +25,9 @@
       retries: 60
       delay: 10
       changed_when: false
+      # The restart above is skipped in check mode, so the node never reports the new
+      # version; skip this wait too instead of burning 10 minutes on a guaranteed failure.
+      when: not ansible_check_mode
 
 - name: Upgrade the k3s agents one at a time
   hosts: k3sfollowers
@@ -49,3 +52,6 @@
       delay: 10
       changed_when: false
       delegate_to: "{{ groups['k3sleaders'][0] }}"
+      # Same reasoning as the server wait above: the restart is skipped in check mode, so
+      # this would otherwise spend 10 minutes polling a node that never changed.
+      when: not ansible_check_mode
