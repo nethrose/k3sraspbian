@@ -1,0 +1,13 @@
+---
+# NAS hardening (item 12, approved 2026-11-18 and applied live that night): overrides so
+# homelab-nas.yml matches the hardened state instead of undoing it on a re-run or rebuild.
+# Defaults (unchanged for the Pi nodes) live in roles/homelab_admin/defaults/main.yml and
+# roles/twingate_ssh_sshd/defaults/main.yml.
+homelab_admin_extra_groups:
+  - _ssh
+homelab_admin_exclusive_groups: true
+homelab_admin_lock_vendor_accounts:
+  - root
+  - pi
+homelab_admin_passwordless_sudo: false
+twingate_sshd_config_method: omv

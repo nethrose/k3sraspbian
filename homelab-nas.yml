@@ -10,10 +10,15 @@
 #
 # After this: ssh snuffy@jellyfin.ssh via Twingate.
 #
-# OMV often ignores sshd_config.d drop-ins (no `Include .../sshd_config.d/*.conf` in its
-# sshd_config). roles/twingate_ssh_sshd detects that and falls back to writing
-# TrustedUserCAKeys directly into sshd_config, so no manual step is needed here. If gateway
-# SSH still hangs after the banner, run on the NAS: sudo sshd -T | grep -i trusteduserca
+# Hardened state (item 12, approved 2026-11-18, applied to the live NAS that night):
+# OMV regenerates /etc/ssh/sshd_config from its own config.xml database, ignoring any
+# sshd_config.d drop-in and wiping a direct edit on the next `Config applyChanges`, so
+# roles/twingate_ssh_sshd sets TrustedUserCAKeys through OMV's own `Ssh` RPC instead
+# (group_vars/homelab_nas.yml: twingate_sshd_config_method: omv). The admin user is in
+# `_ssh`, not `root` (OMV's sshd only admits those two groups), and has left root, disk,
+# shadow and kmem; passwordless sudo for the admin user is off. See
+# inventory/my-cluster/group_vars/homelab_nas.yml for the full set of overrides. If
+# gateway SSH still hangs after the banner, run on the NAS: sudo sshd -T | grep -i trusteduserca
 
 - hosts: homelab_nas
   gather_facts: false

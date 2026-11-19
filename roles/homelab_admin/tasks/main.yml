@@ -9,14 +9,31 @@
 - name: Create homelab admin user
   ansible.builtin.user:
     name: "{{ homelab_admin_user }}"
-    groups: "{{ homelab_admin_group }}"
-    append: true
+    groups: "{{ [homelab_admin_group] + homelab_admin_extra_groups }}"
+    append: "{{ not (homelab_admin_exclusive_groups | bool) }}"
     shell: /bin/bash
     create_home: true
     state: present
 
+# NAS hardening (homelab_nas, item 12.2): the admin user left root/disk/shadow/kmem by
+# hand on the live NAS. homelab_admin_exclusive_groups flips the user task above to
+# append: false, so it alone keeps those groups off, and a rebuilt box doesn't come back
+# with them. No-op elsewhere: append stays true (default), which never removes a group.
+
+# NAS hardening (homelab_nas, item 12.0): lock the vendor/default accounts (root, pi) so a
+# rebuilt box doesn't come back with a guessable vendor password. Nobody logs in as them
+# day to day, so there's no lockout risk. Empty list elsewhere: no-op.
+- name: Lock vendor/default accounts
+  ansible.builtin.user:
+    name: "{{ item }}"
+    password_lock: true
+  loop: "{{ homelab_admin_lock_vendor_accounts }}"
+
 # Static pubkey is bootstrap-only. With gateway SSH CA trust, snuffy@*.ssh uses cert auth.
 # Set homelab_admin_install_ssh_pubkey: true only for first bootstrap before CA is on the node.
+# On homelab_nas this never touches the admin's key either way: that key lives in OMV's own
+# store (/var/lib/openmediavault/ssh/authorized_keys/<user>), not ~/.ssh/authorized_keys.
+# Leave this task as-is for the NAS — pointing it at the OMV store would risk a lockout.
 - name: Manage SSH public key for homelab admin
   ansible.posix.authorized_key:
     user: "{{ homelab_admin_user }}"
@@ -33,3 +50,13 @@
     group: root
     mode: "0440"
     validate: /usr/sbin/visudo -cf %s
+  when: homelab_admin_passwordless_sudo | bool
+
+# NAS hardening (homelab_nas, item 12): the NOPASSWD grant above was removed by hand on
+# the live NAS. Actively enforce its absence rather than merely skipping the copy, so it
+# doesn't come back if someone recreates the file by hand or by a stale run.
+- name: Remove passwordless sudo drop-in where not permitted
+  ansible.builtin.file:
+    path: "/etc/sudoers.d/{{ homelab_admin_user }}"
+    state: absent
+  when: not homelab_admin_passwordless_sudo | bool

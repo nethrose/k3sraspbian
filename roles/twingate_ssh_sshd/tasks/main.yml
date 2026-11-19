@@ -37,16 +37,19 @@
       # Managed by Ansible (twingate-ssh-sshd.yml). Trust certs signed by the Twingate gateway User CA.
       TrustedUserCAKeys {{ twingate_sshd_trusted_user_ca_keys_path }}
   notify: reload sshd
+  when: twingate_sshd_config_method == 'dropin'
 
-# Some sshd_config files (e.g. OpenMediaVault's) don't `Include` sshd_config.d, so the
-# drop-in above is silently ignored. Fall back to editing sshd_config directly when that's
-# the case, instead of requiring a human to remember the manual step on every NAS reinstall.
+# Some sshd_config files don't `Include` sshd_config.d, so the drop-in above is silently
+# ignored. Fall back to editing sshd_config directly when that's the case, instead of
+# requiring a human to remember the manual step. This still isn't enough for
+# OpenMediaVault (homelab_nas): see the omv-rpc tasks below.
 - name: Check whether sshd_config includes sshd_config.d
   ansible.builtin.command: grep -Eq '^\s*Include\s+.*sshd_config\.d' /etc/ssh/sshd_config
   register: sshd_config_includes_dropins
   changed_when: false
   failed_when: false
   check_mode: false
+  when: twingate_sshd_config_method == 'dropin'
 
 - name: Trust Twingate gateway User CA directly in sshd_config (no sshd_config.d support)
   ansible.builtin.lineinfile:
@@ -56,5 +59,60 @@
     insertbefore: "^\\s*Match\\s"
     firstmatch: true
     validate: /usr/sbin/sshd -t -f %s
-  when: sshd_config_includes_dropins.rc != 0
+  when: twingate_sshd_config_method == 'dropin' and sshd_config_includes_dropins.rc != 0
   notify: reload sshd
+
+# OpenMediaVault (homelab_nas) regenerates /etc/ssh/sshd_config from its own config.xml
+# database on every `Config applyChanges` (including from the admin web UI), so neither
+# the drop-in nor a direct sshd_config edit above would stick — OMV would silently wipe
+# them the next time anything touches its SSH settings. Only OMV's own `Ssh` RPC persists.
+#
+# The alternative considered was asserting `sshd -T | grep -i trusteduserca` and failing
+# the play when it's absent. That's simpler but not idempotent: it only detects the
+# problem and requires a human to go fix it by hand every time. Driving the same `Ssh set`
+# RPC the manual runbook used makes this task self-correcting instead, so a re-run or a
+# rebuild converges on the hardened state without a manual step. We read the current
+# config first and only change `extraoptions`, so this never clobbers the other SSH
+# settings (PermitRootLogin, PasswordAuthentication, ...) applied by hand on the NAS.
+- name: Get current OMV SSH service configuration
+  ansible.builtin.command:
+    cmd: omv-rpc -u admin Ssh get
+  register: omv_ssh_get
+  changed_when: false
+  check_mode: false
+  when: twingate_sshd_config_method == 'omv'
+
+- name: Parse OMV SSH service configuration
+  ansible.builtin.set_fact:
+    omv_ssh_config: "{{ omv_ssh_get.stdout | from_json }}"
+  when: twingate_sshd_config_method == 'omv'
+
+- name: Determine whether TrustedUserCAKeys is already set via OMV
+  ansible.builtin.set_fact:
+    omv_ssh_trusted_ca_present: >-
+      {{ ('TrustedUserCAKeys ' + twingate_sshd_trusted_user_ca_keys_path)
+         in (omv_ssh_config.extraoptions | default('')) }}
+  when: twingate_sshd_config_method == 'omv'
+
+- name: Set TrustedUserCAKeys through OMV's SSH extra options
+  ansible.builtin.command:
+    argv:
+      - omv-rpc
+      - -u
+      - admin
+      - Ssh
+      - set
+      - "{{ {
+          'enable': omv_ssh_config.enable,
+          'port': omv_ssh_config.port,
+          'passwordauthentication': omv_ssh_config.passwordauthentication,
+          'pubkeyauthentication': omv_ssh_config.pubkeyauthentication,
+          'permitrootlogin': omv_ssh_config.permitrootlogin,
+          'tcpforwarding': omv_ssh_config.tcpforwarding,
+          'compression': omv_ssh_config.compression,
+          'extraoptions': (((omv_ssh_config.extraoptions | default('')) | trim)
+            + '\n' + 'TrustedUserCAKeys ' + twingate_sshd_trusted_user_ca_keys_path) | trim
+        } | to_json }}"
+  when: twingate_sshd_config_method == 'omv' and not omv_ssh_trusted_ca_present
+  changed_when: true
+  notify: apply OMV SSH config changes

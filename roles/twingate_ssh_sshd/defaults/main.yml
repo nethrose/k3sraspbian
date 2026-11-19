@@ -1,0 +1,10 @@
+---
+# How the Twingate gateway User CA gets trusted by sshd:
+#   dropin - write sshd_config.d/twingate-gateway.conf (today's behavior on the Pi nodes),
+#            falling back to editing sshd_config directly when it has no
+#            `Include .../sshd_config.d/*` (see the task comments below).
+#   omv    - set TrustedUserCAKeys through OpenMediaVault's own `Ssh` RPC instead of
+#            touching sshd_config at all, because OMV regenerates that file from its own
+#            database and would silently wipe a drop-in or a direct edit. homelab_nas
+#            uses this.
+twingate_sshd_config_method: dropin

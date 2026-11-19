@@ -3,3 +3,14 @@
   ansible.builtin.service:
     name: ssh
     state: reloaded
+
+- name: apply OMV SSH config changes
+  ansible.builtin.command:
+    argv:
+      - omv-rpc
+      - -u
+      - admin
+      - Config
+      - applyChanges
+      - '{"modules":["ssh"],"force":false}'
+  changed_when: true
