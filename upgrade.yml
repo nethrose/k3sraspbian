@@ -1,0 +1,51 @@
+---
+# Rolling k3s upgrade to the pinned k3s_version: the server first, then one agent at a time.
+# site.yml only swaps the binary on disk; this play restarts k3s onto it and waits for each
+# node to report the new version before moving on. Bump the pin one minor at a time.
+
+- name: Upgrade the k3s server
+  hosts: k3sleaders
+  become: true
+  serial: 1
+  roles:
+    - role: k3s_setup
+    - role: download
+  post_tasks:
+    - name: Restart k3s on the pinned binary
+      ansible.builtin.systemd:
+        name: k3s
+        state: restarted
+
+    - name: Wait for the server to report the pinned version and Ready
+      ansible.builtin.command: >-
+        /usr/local/bin/k3s kubectl get node {{ inventory_hostname }}
+        -o jsonpath='{.status.nodeInfo.kubeletVersion} {.status.conditions[?(@.type=="Ready")].status}'
+      register: upgrade_server_state
+      until: upgrade_server_state.stdout == k3s_version ~ ' True'
+      retries: 60
+      delay: 10
+      changed_when: false
+
+- name: Upgrade the k3s agents one at a time
+  hosts: k3sfollowers
+  become: true
+  serial: 1
+  roles:
+    - role: k3s_setup
+    - role: download
+  post_tasks:
+    - name: Restart k3s-node on the pinned binary
+      ansible.builtin.systemd:
+        name: k3s-node
+        state: restarted
+
+    - name: Wait for the agent to report the pinned version and Ready
+      ansible.builtin.command: >-
+        /usr/local/bin/k3s kubectl get node {{ inventory_hostname }}
+        -o jsonpath='{.status.nodeInfo.kubeletVersion} {.status.conditions[?(@.type=="Ready")].status}'
+      register: upgrade_agent_state
+      until: upgrade_agent_state.stdout == k3s_version ~ ' True'
+      retries: 60
+      delay: 10
+      changed_when: false
+      delegate_to: "{{ groups['k3sleaders'][0] }}"

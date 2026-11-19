@@ -1,4 +1,25 @@
 ---
+- name: Read the installed k3s version
+  ansible.builtin.command: /usr/local/bin/k3s --version
+  register: download_k3s_installed
+  changed_when: false
+  failed_when: false
+
+# get_url replaces the binary whenever its checksum differs, and the running k3s picks the
+# new one up at its next restart. Refuse a downgrade or a multi-minor jump before that happens.
+- name: Refuse to install an older k3s or to skip a minor
+  vars:
+    download_k3s_target: "{{ k3s_version.split('v')[1].split('+')[0] }}"
+    download_k3s_current: "{{ download_k3s_installed.stdout.split()[2].split('v')[1].split('+')[0] }}"
+  ansible.builtin.assert:
+    that:
+      - download_k3s_target is version(download_k3s_current, '>=')
+      - (download_k3s_target.split('.')[1] | int) <= (download_k3s_current.split('.')[1] | int) + 1
+    fail_msg: >-
+      k3s_version {{ k3s_version }} would replace the installed v{{ download_k3s_current }}
+      (a downgrade or a jump of more than one minor). Set k3s_version in the inventory to the
+      running version or the next minor.
+  when: download_k3s_installed.rc == 0
 
 - name: Download k3s binary x64
   get_url:
