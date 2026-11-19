@@ -89,6 +89,17 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
   per-host-group behavior in those two roles should follow the same pattern: a role default that
   preserves today's behavior, overridden only in that group's `group_vars`.
 - `prereq` role contains upstream RHEL/SELinux tasks that are dead code on Pi OS (harmless).
+- `roles/node_dns`'s NetworkManager reload handler must use `nmcli general reload conf,dns-rc`
+  (`conf` re-reads `conf.d/*.conf`, `dns-rc` rewrites `/etc/resolv.conf`); `dns` alone is not a
+  valid flag on current NetworkManager (`nmcli general reload help` lists `conf`, `dns-rc`,
+  `dns-full`). Ansible never runs handlers in `--check` mode, so a dry run can't catch a broken
+  handler command — `roles/node_dns/tasks/main.yml` compensates with a plain (non-handler) task
+  that reads `/etc/resolv.conf` and re-notifies the reload whenever it doesn't yet match
+  `node_dns_servers`, so the role converges even when the drop-in file was already written by a
+  prior run whose reload failed or never fired, and `--check` reports truthfully. Any new handler
+  in this repo that runs a raw `command`/`shell` (not a dedicated module like `systemd`/`service`)
+  has the same blind spot — verify its exact syntax against the real tool before relying on lint
+  or `--syntax-check` alone.
 - `inventory/my-cluster` sets `extra_server_args: "--disable=traefik"` (README "Configuration"):
   nothing on this cluster uses the bundled Traefik ingress controller. The flag goes into the
   leader's `k3s.service` unit (`roles/k3s/master/templates/k3s.service.j2`), so changing it
