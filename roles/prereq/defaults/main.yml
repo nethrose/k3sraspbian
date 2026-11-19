@@ -1,0 +1,5 @@
+---
+# Whether to turn on net.ipv6.conf.all.forwarding. On by default (today's upstream
+# behavior); my-cluster sets this to false because that cluster is IPv4-only and the
+# nodes do not run with IPv6 forwarding enabled.
+prereq_enable_ipv6_forwarding: true
