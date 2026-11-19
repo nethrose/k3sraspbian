@@ -69,13 +69,6 @@ fi
 
 dpkg_audit_problems=$(dpkg --audit 2>/dev/null | wc -l | tr -d ' ')
 
-reboot_required=0
-reboot_reason=""
-if [ -e "$reboot_flag" ]; then
-  reboot_required=1
-  [ -r "$reboot_info" ] && reboot_reason=$(cat "$reboot_info")
-fi
-
 # Same tests as node-reboot-required, re-derived fresh rather than read from its flag
 # file, so this metric reflects the current state even if the hook hasn't fired yet.
 flavour=${running##*+rpt-}
@@ -91,6 +84,14 @@ for p in "${proc_dir}"/[0-9]*; do
   [ "$(readlink "$p/ns/mnt" 2>/dev/null)" = "$hostns" ] || continue
   grep -qE ' /(usr/)?lib/[^ ]*\.so[^ ]* \(deleted\)$' "$p/maps" 2>/dev/null && stale_processes=$((stale_processes + 1))
 done
+
+reboot_required=0
+reboot_reason=""
+if [ -e "$reboot_flag" ]; then
+  reboot_required=1
+  [ -r "$reboot_info" ] && reboot_reason=$(tr '\n' ' ' < "$reboot_info" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/ *$//')
+fi
+[ "$kernel_pending" -eq 1 ] || [ "$stale_processes" -gt 0 ] && reboot_required=1
 
 mkdir -p "$textfile_dir"
 {
