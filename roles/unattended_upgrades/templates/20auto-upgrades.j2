@@ -1,0 +1,6 @@
+// Managed by Ansible (roles/unattended_upgrades). Turns on the apt-daily timers that
+// were previously enabled but no-op (no APT::Periodic config installed).
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Download-Upgradeable-Packages "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";

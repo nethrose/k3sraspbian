@@ -24,18 +24,18 @@ jobs:
       - name: yamllint
         run: |
           yamllint \
-            site.yml homelab-nas.yml twingate-ssh-sshd.yml upgrade.yml \
+            site.yml homelab-nas.yml twingate-ssh-sshd.yml upgrade.yml patching.yml \
             inventory/my-cluster \
             roles/homelab_admin roles/twingate_ssh_sshd roles/k3s roles/k3s_setup roles/node_dns \
-            roles/download \
+            roles/download roles/unattended_upgrades \
             reset.yml inventory/sample \
             .github/workflows
 
       - name: ansible-lint
         run: |
-          ansible-lint homelab-nas.yml twingate-ssh-sshd.yml upgrade.yml \
+          ansible-lint homelab-nas.yml twingate-ssh-sshd.yml upgrade.yml patching.yml \
             roles/homelab_admin roles/twingate_ssh_sshd roles/k3s roles/k3s_setup roles/node_dns \
-            roles/download
+            roles/download roles/unattended_upgrades
 
       - name: Ansible syntax-check
         run: |
@@ -43,9 +43,18 @@ jobs:
           ansible-playbook --syntax-check -i inventory/my-cluster/hosts.yml homelab-nas.yml
           ansible-playbook --syntax-check -i inventory/my-cluster/hosts.yml twingate-ssh-sshd.yml
           ansible-playbook --syntax-check -i inventory/my-cluster/hosts.yml upgrade.yml
+          ansible-playbook --syntax-check -i inventory/my-cluster/hosts.yml patching.yml
 
       - name: Bootstrap scripts are executable
         run: |
           test -x scripts/verify-ssh.sh
           test -x scripts/fetch-kubeconfig.sh
           test -x scripts/post-k3s-bootstrap.sh
+          test -x roles/unattended_upgrades/files/node-reboot-required.sh
+          test -x roles/unattended_upgrades/files/node-patch-metrics.sh
+
+      - name: shellcheck
+        run: |
+          shellcheck -s sh \
+            roles/unattended_upgrades/files/node-reboot-required.sh \
+            roles/unattended_upgrades/files/node-patch-metrics.sh

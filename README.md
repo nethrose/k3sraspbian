@@ -50,6 +50,8 @@ A **reboot** is expected after the first run (cgroup flags in `/boot/firmware/cm
 | `site.yml` | Homelab admin user + k3s server/agents + Pi prereqs |
 | `homelab-nas.yml` | Homelab admin user + Twingate SSH CA on a NAS (OMV `admin` bootstrap) |
 | `twingate-ssh-sshd.yml` | Trust Twingate gateway User CA on cluster nodes and NAS |
+| `upgrade.yml` | Rolling k3s upgrade to the pinned `k3s_version` |
+| `patching.yml` | Unattended OS security updates on `k3s_cluster` nodes (see below) |
 | `reset.yml` | Teardown k3s |
 
 ```bash
@@ -147,6 +149,45 @@ a time, restarting k3s onto the new binary (`site.yml` alone only swaps the bina
 never restarts k3s). Confirm the cluster is healthy, then repeat for the next minor. Do not set
 `k3s_use_latest_version: true` against a live cluster — it fetches whatever is newest on
 GitHub and can skip several minors in one run.
+
+## Unattended security updates
+
+`patching.yml` installs `unattended-upgrades` and `apt-listchanges` on every `k3s_cluster` node and
+configures security-relevant packages to install overnight, automatically. It does **not** reboot
+nodes, even when a kernel update needs one — reboots are coordinated separately, cluster-wide, in
+the `k3s-gitops` repo (via `kured`), because that's the only place that can see whether the API and
+Pi-hole are healthy before taking a node down.
+
+```bash
+ansible-playbook -i inventory/my-cluster/hosts.yml patching.yml --check --diff   # dry run first
+ansible-playbook -i inventory/my-cluster/hosts.yml patching.yml
+```
+
+What it does on each node:
+
+- Installs from three origins: `Debian-Security` always, plus `Debian` (point-release, no-DSA
+  fixes) and `Raspberry Pi Foundation` (kernel, firmware, and RPi rebuilds — e.g. `openssl` — that
+  shadow Debian security fixes and have no separate security suite of their own). Set
+  `unattended_upgrades_extra_origins: []` in `group_vars`/`host_vars` to narrow installs to
+  `Debian-Security` alone.
+- Stays off `needrestart` — its interactive restart prompts fight the reboot model below.
+- Stays off `Automatic-Reboot` (`"false"` in `52unattended-upgrades-k3s`) — the node sets
+  `/run/reboot-required` for the cluster-side tooling to act on, but never reboots itself.
+- Stages `apt-daily.timer`/`apt-daily-upgrade.timer` at a different install time per node
+  (`apt_upgrade_time` in `inventory/my-cluster/host_vars/`), so sshd/NetworkManager don't all
+  restart from a package upgrade at once.
+- Sets `/run/reboot-required` itself after every `dpkg` run, since Pi OS kernel packages don't
+  (only `dbus`'s postinst does).
+- Writes `node_exporter` textfile metrics (`node_apt_upgrades_pending`, `node_apt_lists_age_seconds`,
+  `node_unattended_upgrades_last_run_timestamp_seconds`/`_success`, `node_dpkg_audit_problems`,
+  `node_reboot_required`/`_info`, `node_kernel_pending`, `node_stale_library_processes`) to
+  `/var/lib/node_exporter/textfile_collector/node_patch.prom`, refreshed after every apt run and
+  hourly. The metric names are relied on by alerts defined in `k3s-gitops`; don't rename them
+  without updating that repo too.
+
+Apt sources stay on plain HTTP: deb.debian.org and archive.raspberrypi.com both serve HTTPS, but
+switching isn't done here (not validated end-to-end against these nodes' sources and out of scope
+for this change).
 
 ## Scripts
 

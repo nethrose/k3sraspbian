@@ -1,0 +1,6 @@
+[Unit]
+Description=Write node patch metrics for the node_exporter textfile collector
+
+[Service]
+Type=oneshot
+ExecStart={{ unattended_upgrades_metrics_script }}

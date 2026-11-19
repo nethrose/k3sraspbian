@@ -1,0 +1,5 @@
+---
+# Staggers apt-daily-upgrade.timer (install) so package-triggered service restarts
+# (sshd, NetworkManager) don't land on all four nodes at once. follower01 holds no
+# DNS component, so it installs first.
+apt_upgrade_time: "01:00"

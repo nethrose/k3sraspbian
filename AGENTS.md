@@ -37,6 +37,9 @@ is the project skill `.claude/skills/provision-k3s-pis`.
   `ip_tables` module exists).
 - `inventory/sample` — template inventory (SSH user `pi`).
 - `inventory/my-cluster` — author's real inventory (fixed IPs, per-host SSH user = hostname).
+- `patching.yml` / `roles/unattended_upgrades` — unattended OS security updates on `k3s_cluster`.
+  Never reboots a node itself (coordinated reboots are `kured` in `k3s-gitops`); see README
+  "Unattended security updates" for what it installs and why.
 
 ## Usage
 
@@ -78,8 +81,16 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
   preserves today's behavior, overridden only in that group's `group_vars`.
 - `prereq` role contains upstream RHEL/SELinux tasks that are dead code on Pi OS (harmless).
 - CI (`.github/workflows/validate.yml`) runs yamllint + syntax-check, and ansible-lint on
-  `homelab_admin`, `twingate_ssh_sshd`, `k3s`, `k3s_setup`, `node_dns`, `download`, `upgrade.yml`
-  (`prereq`/`reset` still skipped).
+  `homelab_admin`, `twingate_ssh_sshd`, `k3s`, `k3s_setup`, `node_dns`, `download`,
+  `unattended_upgrades`, `upgrade.yml`, `patching.yml` (`prereq`/`reset` still skipped), plus
+  shellcheck on the two `unattended_upgrades` scripts.
+- `roles/unattended_upgrades` requires `apt_upgrade_time` set per host in
+  `inventory/my-cluster/host_vars/` (fails closed otherwise) to stagger
+  `apt-daily-upgrade.timer` across the cluster. The two shell scripts
+  (`node-reboot-required.sh`, `node-patch-metrics.sh`) read `NODE_REBOOT_REQUIRED_*` /
+  `NODE_PATCH_METRICS_*` env vars that default to the real paths — only tests should set them.
+  The textfile metric names (`node_apt_upgrades_pending`, `node_reboot_required`, etc.) are
+  matched by alerts in `k3s-gitops`; don't rename them there without updating that repo too.
 
 ## Hardware / network
 

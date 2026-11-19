@@ -1,0 +1,24 @@
+---
+# Origins unattended-upgrades installs from automatically, beyond Debian-Security
+# (which is always allowed and not configurable here). The default is the design's
+# recommendation:
+#   - Debian point releases: conservative, no-DSA security fixes.
+#   - Raspberry Pi Foundation: kernel, firmware, and RPi rebuilds (e.g. openssl) that
+#     shadow Debian security fixes and have no separate security suite of their own.
+# Set to [] to narrow unattended installs to Debian-Security alone.
+unattended_upgrades_extra_origins:
+  - "origin=Debian,codename=${distro_codename},label=Debian"
+  - "origin=Raspberry Pi Foundation,codename=${distro_codename},label=Raspberry Pi Foundation"
+
+# apt-daily.timer (list refresh + download) fires at the same time on every node;
+# only the install step (apt-daily-upgrade.timer, apt_upgrade_time) is staggered per
+# host_vars so package-triggered service restarts don't land on all four nodes at once.
+apt_daily_time: "00:15"
+
+# Must be set per host in host_vars/ (see inventory/my-cluster/host_vars/) to stagger
+# apt-daily-upgrade.timer across the cluster. No cluster-wide default on purpose.
+apt_upgrade_time: ~
+
+unattended_upgrades_reboot_script: /usr/local/sbin/node-reboot-required
+unattended_upgrades_metrics_script: /usr/local/sbin/node-patch-metrics
+node_exporter_textfile_dir: /var/lib/node_exporter/textfile_collector
