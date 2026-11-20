@@ -100,8 +100,9 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
   in this repo that runs a raw `command`/`shell` (not a dedicated module like `systemd`/`service`)
   has the same blind spot — verify its exact syntax against the real tool before relying on lint
   or `--syntax-check` alone.
-- `inventory/my-cluster` sets `extra_server_args: "--disable=traefik"` (README "Configuration"):
-  nothing on this cluster uses the bundled Traefik ingress controller. The flag goes into the
+- `inventory/my-cluster` sets `extra_server_args: "--disable=traefik --disable=gateway-api-crd"` (README "Configuration"):
+  nothing on this cluster uses the bundled Traefik ingress controller; the second item stops k3s >= 1.37
+  deploying its Gateway API CRD component. The flag goes into the
   leader's `k3s.service` unit (`roles/k3s/master/templates/k3s.service.j2`), so changing it
   restarts the k3s server only, per the role's `Restart k3s` handler — never the agents.
 - CI (`.github/workflows/validate.yml`) runs yamllint + syntax-check, and ansible-lint on

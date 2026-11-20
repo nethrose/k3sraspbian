@@ -1,8 +1,11 @@
 ---
-# Must equal the version the nodes run today (`k3s --version`); the download role replaces
-# /usr/local/bin/k3s with this release on every run and refuses a downgrade or multi-minor jump.
-# Bump one minor at a time, then run upgrade.yml (see README.md "Upgrading k3s").
-k3s_version: v1.36.6+k3s1
+# The version the nodes should run; normally equal to `k3s --version` on every node. It is ahead
+# of them only between bumping it and running upgrade.yml. In that window, run site.yml only with
+# --limit to the leader (to apply a changed extra_server_args), never unlimited: on the agents the
+# download role would swap /usr/local/bin/k3s to the new pin without restarting k3s.
+# The download role refuses a downgrade or multi-minor jump. Bump one minor at a time, then run
+# upgrade.yml (see README.md "Upgrading k3s").
+k3s_version: v1.37.2+k3s1
 k3s_use_latest_version: false
 # Modern Pi OS (kernel 6.18+) is nftables-only; leave false unless ip_tables.ko exists.
 k3s_use_iptables_legacy: false
@@ -14,7 +17,10 @@ master_ip: "{{ hostvars[groups['k3sleaders'][0]]['ansible_default_ipv4']['addres
 # Nothing on this cluster uses the bundled Traefik ingress controller (no Ingress or Traefik
 # custom resources exist); disabling it stops it listening on :80/:443 on every node and removes
 # it as a source of advisories. Remove this flag to let k3s redeploy Traefik.
-extra_server_args: "--disable=traefik"
+# From k3s v1.37 the Gateway API CRDs are their own packaged component (`gateway-api-crd`),
+# separate from Traefik; it is disabled too so k3s never deploys or takes over that component.
+# Nothing on this cluster uses Gateway API.
+extra_server_args: "--disable=traefik --disable=gateway-api-crd"
 extra_agent_args: ""
 
 # Public DNS the k3s nodes resolve through directly, independent of DHCP/router DNS

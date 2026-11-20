@@ -90,11 +90,11 @@ Connect via Twingate SSH: `ssh <homelab_admin_user>@leader01.ssh` (after gateway
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `k3s_use_latest_version` | `false` in `my-cluster` (`true` in `sample`) | Fetch latest k3s from GitHub instead of using the pin below |
-| `k3s_version` | `v1.36.6+k3s1` | Pinned version installed when `k3s_use_latest_version` is `false` |
+| `k3s_version` | `v1.37.2+k3s1` | Pinned version installed when `k3s_use_latest_version` is `false` |
 | `homelab_admin_user` | `homelab` | Shared admin + Twingate SSH upstream user |
 | `homelab_admin_ssh_pubkey_file` | `~/.ssh/id_rsa.pub` | SSH key for admin user |
 | `node_dns_servers` | `[1.1.1.1, 9.9.9.9]` | Public DNS the k3s nodes resolve through directly (see "Node DNS" below) |
-| `extra_server_args` | `--disable=traefik` in `my-cluster` | Extra flags appended to `k3s server`; `my-cluster` disables the bundled Traefik ingress controller (unused on this cluster) so it stops listening on :80/:443 on every node. Changing this value changes the leader's `k3s.service` unit, which restarts the k3s server |
+| `extra_server_args` | `--disable=traefik --disable=gateway-api-crd` in `my-cluster` | Extra flags appended to `k3s server`; `my-cluster` disables the bundled Traefik ingress controller (unused on this cluster) so it stops listening on :80/:443 on every node, and the Gateway API CRD component that k3s ships from v1.37. Changing this value changes the leader's `k3s.service` unit, which restarts the k3s server |
 | `extra_agent_args` | `""` | Extra flags appended to `k3s agent` |
 | `prereq_enable_ipv6_forwarding` | `true` (role default); `false` in `my-cluster` | Whether the `prereq` role sets `net.ipv6.conf.all.forwarding=1`. `my-cluster` is IPv4-only and its nodes don't run with it, so it's left untouched |
 
@@ -146,12 +146,39 @@ kubectl run dns-test --rm -it --restart=Never --image=busybox:1.36 -- nslookup k
 `my-cluster` pins `k3s_version` so re-running `site.yml` never jumps minors unexpectedly; the
 `download` role also refuses to install anything older than what's already running, or a jump
 of more than one minor. To upgrade, step **one minor at a time**: bump `k3s_version` in
-`inventory/my-cluster/group_vars/all.yml` to the next minor (e.g. `v1.36.6+k3s1` →
-`v1.37.0+k3s1`), then run `upgrade.yml` — it upgrades the server first, then each agent one at
-a time, restarting k3s onto the new binary (`site.yml` alone only swaps the binary on disk and
-never restarts k3s). Confirm the cluster is healthy, then repeat for the next minor. Do not set
-`k3s_use_latest_version: true` against a live cluster — it fetches whatever is newest on
-GitHub and can skip several minors in one run.
+`inventory/my-cluster/group_vars/all.yml` to the newest patch of the next minor (e.g.
+`v1.36.6+k3s1` → `v1.37.2+k3s1`), then run `upgrade.yml` — it upgrades the server first, then
+each agent one at a time, restarting k3s onto the new binary. Confirm the cluster is healthy,
+then repeat for the next minor.
+
+`upgrade.yml` does not rewrite the k3s unit files. It swaps the binary and restarts k3s with the
+unit already on disk. When a bump comes with an `extra_server_args` change, as the v1.37 move does
+(`--disable=gateway-api-crd`, below), run `site.yml` limited to the leader first. It writes the new
+`k3s.service`, installs the pinned binary and restarts the server once, so the new minor never
+starts without the new flags. Then run `upgrade.yml`:
+
+```bash
+ansible-playbook -i inventory/my-cluster/hosts.yml site.yml --check --diff --limit leader01
+ansible-playbook -i inventory/my-cluster/hosts.yml site.yml --limit leader01
+ansible-playbook -i inventory/my-cluster/hosts.yml upgrade.yml
+```
+
+Never run `site.yml` unlimited between bumping the pin and running `upgrade.yml`. It would swap the
+binary on every agent without restarting it, leaving each agent to change version at its next
+restart. Do not set `k3s_use_latest_version: true` against a live cluster — it fetches whatever is
+newest on GitHub and can skip several minors in one run.
+
+Take the target from the k3s release channel for that minor, which redirects to the newest
+release in it:
+
+```bash
+curl -s -o /dev/null -w '%{redirect_url}\n' https://update.k3s.io/v1-release/channels/v1.37
+```
+
+Read the Kubernetes and k3s release notes for the new minor before bumping. From v1.37, k3s
+deploys the Gateway API CRDs as their own packaged component (`gateway-api-crd`), separate from
+Traefik, so `--disable=traefik` no longer keeps them off; `my-cluster` sets
+`--disable=gateway-api-crd` in `extra_server_args`, so k3s never deploys that component.
 
 ## Unattended security updates
 
