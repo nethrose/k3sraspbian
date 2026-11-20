@@ -92,8 +92,10 @@ A reboot is expected after the cgroup `cmdline.txt` change on first provision.
 - `roles/node_dns`'s NetworkManager reload handler must use `nmcli general reload conf,dns-rc`
   (`conf` re-reads `conf.d/*.conf`, `dns-rc` rewrites `/etc/resolv.conf`); `dns` alone is not a
   valid flag on current NetworkManager (`nmcli general reload help` lists `conf`, `dns-rc`,
-  `dns-full`). Ansible never runs handlers in `--check` mode, so a dry run can't catch a broken
-  handler command — `roles/node_dns/tasks/main.yml` compensates with a plain (non-handler) task
+  `dns-full`). Ansible does run notified handlers in check mode, as check-mode calls: a module
+  handler such as `systemd` reports changed without acting, and a raw `command` or `shell` handler
+  is skipped, so a dry run still cannot catch a broken handler command —
+  `roles/node_dns/tasks/main.yml` compensates with a plain (non-handler) task
   that reads `/etc/resolv.conf` and re-notifies the reload whenever it doesn't yet match
   `node_dns_servers`, so the role converges even when the drop-in file was already written by a
   prior run whose reload failed or never fired, and `--check` reports truthfully. Any new handler
