@@ -148,9 +148,24 @@ kubectl run dns-test --rm -it --restart=Never --image=busybox:1.36 -- nslookup k
 of more than one minor. To upgrade, step **one minor at a time**: bump `k3s_version` in
 `inventory/my-cluster/group_vars/all.yml` to the newest patch of the next minor (e.g.
 `v1.36.6+k3s1` → `v1.37.2+k3s1`), then run `upgrade.yml` — it upgrades the server first, then
-each agent one at a time, restarting k3s onto the new binary (`site.yml` alone only swaps the
-binary on disk and never restarts k3s). Confirm the cluster is healthy, then repeat for the next
-minor. Do not set `k3s_use_latest_version: true` against a live cluster — it fetches whatever is
+each agent one at a time, restarting k3s onto the new binary. Confirm the cluster is healthy,
+then repeat for the next minor.
+
+`upgrade.yml` does not rewrite the k3s unit files. It swaps the binary and restarts k3s with the
+unit already on disk. When a bump comes with an `extra_server_args` change, as the v1.37 move does
+(`--disable=gateway-api-crd`, below), run `site.yml` limited to the leader first. It writes the new
+`k3s.service`, installs the pinned binary and restarts the server once, so the new minor never
+starts without the new flags. Then run `upgrade.yml`:
+
+```bash
+ansible-playbook -i inventory/my-cluster/hosts.yml site.yml --check --diff --limit leader01
+ansible-playbook -i inventory/my-cluster/hosts.yml site.yml --limit leader01
+ansible-playbook -i inventory/my-cluster/hosts.yml upgrade.yml
+```
+
+Never run `site.yml` unlimited between bumping the pin and running `upgrade.yml`. It would swap the
+binary on every agent without restarting it, leaving each agent to change version at its next
+restart. Do not set `k3s_use_latest_version: true` against a live cluster — it fetches whatever is
 newest on GitHub and can skip several minors in one run.
 
 Take the target from the k3s release channel for that minor, which redirects to the newest

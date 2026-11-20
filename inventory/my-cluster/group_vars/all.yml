@@ -1,7 +1,8 @@
 ---
 # The version the nodes should run; normally equal to `k3s --version` on every node. It is ahead
-# of them only between bumping it and running upgrade.yml; do not run site.yml in that window,
-# since the download role would swap /usr/local/bin/k3s to the new pin without restarting k3s.
+# of them only between bumping it and running upgrade.yml. In that window, run site.yml only with
+# --limit to the leader (to apply a changed extra_server_args), never unlimited: on the agents the
+# download role would swap /usr/local/bin/k3s to the new pin without restarting k3s.
 # The download role refuses a downgrade or multi-minor jump. Bump one minor at a time, then run
 # upgrade.yml (see README.md "Upgrading k3s").
 k3s_version: v1.37.2+k3s1
