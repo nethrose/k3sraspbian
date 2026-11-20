@@ -94,7 +94,7 @@ Connect via Twingate SSH: `ssh <homelab_admin_user>@leader01.ssh` (after gateway
 | `homelab_admin_user` | `homelab` | Shared admin + Twingate SSH upstream user |
 | `homelab_admin_ssh_pubkey_file` | `~/.ssh/id_rsa.pub` | SSH key for admin user |
 | `node_dns_servers` | `[1.1.1.1, 9.9.9.9]` | Public DNS the k3s nodes resolve through directly (see "Node DNS" below) |
-| `extra_server_args` | `--disable=traefik` in `my-cluster` | Extra flags appended to `k3s server`; `my-cluster` disables the bundled Traefik ingress controller (unused on this cluster) so it stops listening on :80/:443 on every node. Changing this value changes the leader's `k3s.service` unit, which restarts the k3s server |
+| `extra_server_args` | `--disable=traefik --disable=gateway-api-crd` in `my-cluster` | Extra flags appended to `k3s server`; `my-cluster` disables the bundled Traefik ingress controller (unused on this cluster) so it stops listening on :80/:443 on every node, and the Gateway API CRD component that k3s ships from v1.37. Changing this value changes the leader's `k3s.service` unit, which restarts the k3s server |
 | `extra_agent_args` | `""` | Extra flags appended to `k3s agent` |
 | `prereq_enable_ipv6_forwarding` | `true` (role default); `false` in `my-cluster` | Whether the `prereq` role sets `net.ipv6.conf.all.forwarding=1`. `my-cluster` is IPv4-only and its nodes don't run with it, so it's left untouched |
 
@@ -162,8 +162,8 @@ curl -s -o /dev/null -w '%{redirect_url}\n' https://update.k3s.io/v1-release/cha
 
 Read the Kubernetes and k3s release notes for the new minor before bumping. From v1.37, k3s
 deploys the Gateway API CRDs as their own packaged component (`gateway-api-crd`), separate from
-Traefik, so `--disable=traefik` no longer keeps them off; add `--disable=gateway-api-crd` to
-`extra_server_args` to keep them off as well.
+Traefik, so `--disable=traefik` no longer keeps them off; `my-cluster` sets
+`--disable=gateway-api-crd` in `extra_server_args`, so k3s never deploys that component.
 
 ## Unattended security updates
 
